@@ -11,16 +11,7 @@ if (Test-Path $VenvPython) {
 
 Push-Location $ProjectRoot
 try {
-    & $PythonExe -m ruff check .
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-    & $PythonExe -m ruff format --check .
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-    & $PythonExe -m mypy src tests
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-    & $PythonExe -m pytest
+    & $PythonExe scripts/fetch_customer_support_tickets.py
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 finally {

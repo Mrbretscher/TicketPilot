@@ -31,6 +31,9 @@ where = ["src"]
 addopts = "--cov=ticketpilot --cov-report=term-missing"
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "integration: tests that require external services or network access",
+]
 
 [tool.ruff]
 line-length = 88
@@ -39,6 +42,10 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
 
 [tool.mypy]
 python_version = "3.11"

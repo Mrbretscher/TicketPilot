@@ -2,60 +2,173 @@
 
 ## Dataset Status
 
-No dataset has been selected yet.
+Milestone 1 selects a public Hugging Face dataset for local experimentation:
 
-## Approved Data Sources
+- Source repository: `Tobi-Bueck/customer-support-tickets`
+- Dataset page: <https://huggingface.co/datasets/Tobi-Bueck/customer-support-tickets>
+- Dataset file used for recruiter-ready v1: `aa_dataset-tickets-multi-lang-5-2-50-version.csv`
+- Pinned revision: `ddf1c81a5475992c4fa6752bf1e8b4e31f07bbeb`
+- Source file SHA256: `f187c090e59581c2bbf3aa1377c8db4dd647464ecf2ae51bf8966e42e0ed6bc0`
+- DOI listed by Hugging Face: `10.57967/hf/6184`
+- License listed by Hugging Face: `cc-by-nc-4.0`
+- Retrieval date for this project documentation: 2026-10-02
 
-TicketPilot may use public datasets with compatible licenses or synthetic tickets created specifically for this portfolio project.
+The full downloaded source CSV and English subset are stored locally under
+`data/raw/`, which is ignored by Git. Do not commit the downloaded dataset.
 
-Private employer, university, customer, help-desk, or support-ticket data must never be used.
+## Acquisition
 
-## Planned Schema
+Fetch and validate the pinned dataset locally:
 
-Candidate fields:
+```powershell
+.\.venv\Scripts\python.exe scripts/fetch_customer_support_tickets.py
+```
 
-- ticket_id
-- created_at
-- title
-- body
-- requester_context
-- product_area
-- queue_label
-- priority_label
-- resolved_answer
-- resolution_notes
+or:
 
-The final schema is not approved yet.
+```powershell
+.\scripts\fetch_data.ps1
+```
 
-## Classifier Input Policy
+The acquisition command writes:
 
-Allowed classifier inputs may include only fields available before routing, such as title, body, and approved request metadata.
+- `data/raw/customer_support_tickets_source.csv`
+- `data/raw/customer_support_tickets_en.csv`
 
-Classifier inputs must never include:
+If the source file already exists, the command reuses it unless `--overwrite`
+is supplied. The source file hash is checked before validation.
 
-- resolved_answer
-- resolution_notes
-- final response text
-- close notes
-- post-resolution tags
-- any proxy field unavailable at prediction time
+## Observed Source Schema
 
-Resolved-ticket text may later be used as retrieval evidence, but it must remain separate from classifier features.
+The current pinned CSV was inspected before implementing validation. It contains
+28,587 rows and these columns in this order:
 
-## Leakage And Contamination Checks
+1. `subject`
+2. `body`
+3. `answer`
+4. `type`
+5. `queue`
+6. `priority`
+7. `language`
+8. `version`
+9. `tag_1`
+10. `tag_2`
+11. `tag_3`
+12. `tag_4`
+13. `tag_5`
+14. `tag_6`
+15. `tag_7`
+16. `tag_8`
 
-Before reporting model performance, the project must check for:
+Observed language counts:
 
-- Duplicate or near-duplicate tickets split across train and test.
-- Resolution text included in training features.
-- Labels or label proxies embedded in feature columns.
-- Time-dependent leakage if chronological data is used.
-- Retrieval corpus contamination in generation evaluation.
+- `en`: 16,338
+- `de`: 12,249
 
-## License And Attribution
+TicketPilot recruiter-ready v1 uses only `language == "en"` records while
+preserving the original fields listed above for analysis.
 
-Dataset license, source URL, acquisition date, and attribution requirements must be documented before data is committed or used in reports.
+## English Subset Quality Snapshot
 
-## Storage Policy
+Observed on 2026-10-02 after filtering to English records:
 
-Downloaded datasets, intermediate data, generated artifacts, model files, vector indexes, and experiment outputs must not be committed.
+- Rows: 16,338
+- Queues:
+  - Technical Support: 4,737
+  - Product Support: 3,073
+  - Customer Service: 2,410
+  - IT Support: 1,942
+  - Billing and Payments: 1,595
+  - Returns and Exchanges: 820
+  - Service Outages and Maintenance: 664
+  - Sales and Pre-Sales: 513
+  - Human Resources: 348
+  - General Inquiry: 236
+- Priorities:
+  - medium: 6,618
+  - high: 6,346
+  - low: 3,374
+- Null values observed:
+  - `subject`: 2,607
+  - `answer`: 3
+  - tag columns contain expected sparse values
+- Empty `body` records: 0
+- Empty `subject` and `body` records: 0
+- Exact duplicate rows: 0
+- Exact duplicate `subject` + `body` combinations: 0
+
+Missing `subject` values are retained because `body` remains available and
+non-empty. Downstream preprocessing must handle missing subject text explicitly.
+
+## Classifier Boundary
+
+Allowed classifier inputs:
+
+- `subject`
+- `body`
+
+Allowed classifier labels:
+
+- `queue`
+- `priority`
+
+The `answer` field must not be used as a classifier input. It is preserved only
+for later resolved-ticket retrieval and RAG evidence. Retrieved evidence must
+remain structurally separate from model-generated text.
+
+The following fields are also prohibited as classifier inputs in Milestone 1:
+
+- `answer`
+- `type`
+- `queue`
+- `priority`
+- `language`
+- `version`
+- `tag_1` through `tag_8`
+
+## Validation Checks
+
+Implemented validation covers:
+
+- Required columns and exact schema order.
+- Unexpected schema changes.
+- Null values in required non-null fields.
+- Empty ticket text across `subject` and `body`.
+- Language values.
+- Queue values.
+- Priority values.
+- Type values.
+- Dataset size thresholds for the source and English subset.
+- Label distributions.
+- Exact duplicate records.
+- Exact duplicate `subject` + `body` combinations.
+- Suspicious label leakage diagnostics, such as label words appearing in
+  classifier text.
+- Classifier feature-column policy, including explicit rejection of `answer`.
+
+Suspicious label-mention counts are diagnostics rather than automatic failures
+because user-authored ticket text may naturally mention urgency or routing
+terms. These counts must be reviewed before any model results are reported.
+
+## Attribution
+
+Attribute the dataset to the Hugging Face repository
+`Tobi-Bueck/customer-support-tickets` and preserve the stated
+`cc-by-nc-4.0` license when using this project in public materials. The dataset
+card links the creator organization as Softoft.
+
+## Limitations
+
+- The dataset card describes the data as generated by a synthetic IT ticket
+  generator, not as real private support data.
+- The license is non-commercial (`cc-by-nc-4.0`), so commercial use is out of
+  scope without separate permission.
+- The data is multilingual, but TicketPilot v1 uses only English records.
+- Queue and priority labels are synthetic and may not represent a real
+  organization's triage policy.
+- Some English records have missing subjects; `body` is therefore the more
+  reliable core text field.
+- The `answer` field can support later retrieval/RAG experiments but must never
+  be mixed into classifier inputs.
+- No model performance, fairness, calibration, or production-readiness claims
+  have been established.

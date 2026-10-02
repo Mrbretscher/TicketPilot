@@ -31,6 +31,16 @@ The initial scaffold intentionally includes only the Python package, documentati
 
 The project targets Python 3.11 and uses a src-based package layout.
 
+Fetch the public support-ticket dataset locally:
+
+```powershell
+.\scripts\fetch_data.ps1
+```
+
+The command downloads the pinned Hugging Face source CSV, filters English
+records, validates schema and quality checks, and writes ignored files under
+`data/raw/`.
+
 ## Current State
 
 See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) for milestone status and the next planned work.

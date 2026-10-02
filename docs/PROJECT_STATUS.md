@@ -13,7 +13,7 @@ Last updated: 2026-10-02
 | Status | Milestone | Evidence | Next Step |
 | --- | --- | --- | --- |
 | COMPLETE | Initial repository scaffold | Documentation, pyproject, package shell, scripts, and import smoke test | Begin data contract |
-| NOT STARTED | Data contract and synthetic seed data | None | Define ticket schema and validation |
+| COMPLETE | Dataset acquisition and validation | Hugging Face acquisition script, validation utilities, offline fixtures, integration test gate, and updated data documentation | Build duplicate-aware scikit-learn baseline |
 | NOT STARTED | scikit-learn baseline | None | Build TF-IDF baseline after data contract |
 | NOT STARTED | Confidence and abstention | None | Define confidence thresholds and review routing |
 | NOT STARTED | Retrieval | None | Choose retrieval approach after approved data exists |
@@ -25,11 +25,11 @@ Last updated: 2026-10-02
 
 ## Current Focus
 
-Initial scaffold.
+Dataset acquisition and validation complete; next focus is the scikit-learn baseline.
 
 ## Immediate Next Task
 
-Define the ticket data contract, including fields, labels, prohibited leakage fields, and a small synthetic fixture for tests.
+Build the TF-IDF baseline for queue and priority classification using only `subject` and `body`, with duplicate-aware splitting and leakage reporting.
 
 ## Known Constraints
 
@@ -37,3 +37,5 @@ Define the ticket data contract, including fields, labels, prohibited leakage fi
 - Do not add TensorFlow, sentence-transformers, OpenAI, FastAPI, Streamlit, Docker, or a vector database yet.
 - Tests must not require paid API calls.
 - Do not use private employer, university, customer, or support-ticket data.
+- Do not commit `data/raw/` downloads.
+- The selected Hugging Face dataset is licensed `cc-by-nc-4.0`; keep portfolio use non-commercial unless separately approved.
