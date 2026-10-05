@@ -20,12 +20,17 @@ from ticketpilot.config import (
     SPLIT_RANDOM_SEED,
 )
 from ticketpilot.evaluation import (
+    coverage_performance_curve,
     evaluate_abstention,
     evaluate_queue_classifier,
+    multiclass_calibration_metrics,
+    per_queue_confidence_report,
+    predict_queue_probabilities,
     predict_queue_routes,
     save_confusion_matrix_csv,
     save_confusion_matrix_svg,
     save_model_comparison_svg,
+    save_reliability_svg,
     select_abstention_threshold,
 )
 from ticketpilot.modeling import (
@@ -161,9 +166,25 @@ def train_and_evaluate_queue_baselines(
         splits["train"],
         random_seed=random_seed,
     )
+    selected_validation_metrics = evaluate_queue_classifier(
+        validation_confidence_model,
+        splits["validation"][CLASSIFIER_TEXT_COLUMN],
+        splits["validation"][QUEUE_LABEL_COLUMN],
+        labels=labels,
+    )
     validation_predictions = predict_queue_routes(
         validation_confidence_model,
         splits["validation"][CLASSIFIER_TEXT_COLUMN],
+        labels=labels,
+    )
+    validation_probabilities = predict_queue_probabilities(
+        validation_confidence_model,
+        splits["validation"][CLASSIFIER_TEXT_COLUMN],
+        labels=labels,
+    )
+    validation_calibration = multiclass_calibration_metrics(
+        splits["validation"][QUEUE_LABEL_COLUMN],
+        validation_probabilities,
         labels=labels,
     )
     abstention_selection = select_abstention_threshold(
@@ -194,6 +215,16 @@ def train_and_evaluate_queue_baselines(
         splits["test"][CLASSIFIER_TEXT_COLUMN],
         labels=labels,
     )
+    test_probabilities = predict_queue_probabilities(
+        final_model,
+        splits["test"][CLASSIFIER_TEXT_COLUMN],
+        labels=labels,
+    )
+    test_calibration = multiclass_calibration_metrics(
+        splits["test"][QUEUE_LABEL_COLUMN],
+        test_probabilities,
+        labels=labels,
+    )
     threshold = float(abstention_selection["selected_threshold"])
     test_abstention = evaluate_abstention(
         splits["test"][QUEUE_LABEL_COLUMN],
@@ -202,6 +233,34 @@ def train_and_evaluate_queue_baselines(
         threshold=threshold,
         labels=labels,
     )
+    validation_threshold_curve = coverage_performance_curve(
+        splits["validation"][QUEUE_LABEL_COLUMN],
+        validation_predictions["predicted_queue"],
+        validation_predictions["confidence"],
+        labels=labels,
+    )
+    test_threshold_curve = coverage_performance_curve(
+        splits["test"][QUEUE_LABEL_COLUMN],
+        test_predictions["predicted_queue"],
+        test_predictions["confidence"],
+        labels=labels,
+    )
+    per_queue_analysis = {
+        "validation": per_queue_confidence_report(
+            splits["validation"][QUEUE_LABEL_COLUMN],
+            validation_predictions["predicted_queue"],
+            validation_predictions["confidence"],
+            threshold=threshold,
+            labels=labels,
+        ),
+        "test": per_queue_confidence_report(
+            splits["test"][QUEUE_LABEL_COLUMN],
+            test_predictions["predicted_queue"],
+            test_predictions["confidence"],
+            threshold=threshold,
+            labels=labels,
+        ),
+    }
 
     report_dir = Path(report_dir)
     artifact_dir = Path(artifact_dir)
@@ -222,6 +281,16 @@ def train_and_evaluate_queue_baselines(
     confusion_csv = save_confusion_matrix_csv(
         test_metrics,
         tables_dir / "test_confusion_matrix.csv",
+    )
+    validation_reliability_svg = save_reliability_svg(
+        validation_calibration,
+        plots_dir / "validation_reliability.svg",
+        title="Validation Reliability Diagram",
+    )
+    test_reliability_svg = save_reliability_svg(
+        test_calibration,
+        plots_dir / "test_reliability.svg",
+        title="Final Test Reliability Diagram",
     )
 
     return {
@@ -262,13 +331,39 @@ def train_and_evaluate_queue_baselines(
         "selected_model": {
             "name": selected_model_name,
             "validation_macro_f1": validation_metrics[selected_model_name]["macro_f1"],
+            "calibrated_validation_macro_f1": selected_validation_metrics["macro_f1"],
             "confidence_model": _confidence_model_description(selected_model_name),
             "artifact_path": str(model_path),
             "artifact_size_bytes": model_path.stat().st_size,
         },
+        "confidence_model_validation_metrics": selected_validation_metrics,
+        "calibration": {
+            "method": validation_calibration["method"],
+            "binning": validation_calibration["binning"],
+            "validation": validation_calibration,
+            "test": {
+                **test_calibration,
+                "reporting_only": True,
+            },
+        },
+        "confidence_analysis": {
+            "validation": {
+                "threshold_curve": validation_threshold_curve,
+                "threshold_selection_source": "validation_split",
+            },
+            "test": {
+                "threshold_curve": test_threshold_curve,
+                "reporting_only": True,
+            },
+        },
+        "per_queue_analysis": per_queue_analysis,
         "abstention": {
             "threshold_selection": abstention_selection,
-            "test_result": test_abstention,
+            "test_result": {
+                **test_abstention,
+                "threshold_source": "validation_split",
+                "reporting_only": True,
+            },
         },
         "test_metrics": test_metrics,
         "artifacts": {
@@ -276,6 +371,8 @@ def train_and_evaluate_queue_baselines(
             "validation_model_comparison_plot": str(comparison_plot),
             "test_confusion_matrix_svg": str(confusion_svg),
             "test_confusion_matrix_csv": str(confusion_csv),
+            "validation_reliability_svg": str(validation_reliability_svg),
+            "test_reliability_svg": str(test_reliability_svg),
         },
     }
 

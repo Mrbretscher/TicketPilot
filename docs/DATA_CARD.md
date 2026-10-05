@@ -100,6 +100,42 @@ Observed on 2026-10-02 after filtering to English records:
 Missing `subject` values are retained because `body` remains available and
 non-empty. Downstream preprocessing must handle missing subject text explicitly.
 
+## Near-Duplicate Split Audit
+
+A focused near-duplicate audit was run on 2026-10-05 after the Phase 11
+evaluation audit flagged repeated and highly similar ticket text patterns. The
+audit used normalized `subject` + `body` text as the primary ticket
+representation and compared split pairs independently with a documented
+scikit-learn TF-IDF cosine nearest-neighbor method. The audit report is written
+to the ignored machine-readable artifact
+`reports/near_duplicate_leakage/audit_report.json`.
+
+Cross-split candidate pairs:
+
+| Similarity threshold | Candidate pairs | Unique affected tickets |
+| --- | ---: | ---: |
+| `>= 0.90` | 98 | 187 |
+| `>= 0.95` | 12 | 24 |
+| `>= 0.98` | 4 | 8 |
+
+Counts by split pair at `>= 0.90`:
+
+- Train vs validation: 48
+- Train vs final test: 45
+- Validation vs final test: 5
+
+All 98 `>= 0.90` candidate pairs have the same queue and priority labels on
+both sides of the split boundary. The highest-scoring examples are mostly
+generated-template variants, including one train/test pair that differs only by
+punctuation. The audit also found 31 repeated-subject cross-split pairs; 22 have
+the same queue and 9 have different queues. These repeated-subject-only matches
+are tracked as a risk signal but did not by themselves justify rebuilding the
+split because the full `subject` + `body` audit did not show material
+label-conflicting near-duplicate leakage.
+
+Audit conclusion: no material cross-split leakage was found. Existing splits
+remain defensible, and no train/validation/test assignments were changed.
+
 ## Classifier Boundary
 
 Allowed classifier inputs:
@@ -142,6 +178,8 @@ Implemented validation covers:
 - Label distributions.
 - Exact duplicate records.
 - Exact duplicate `subject` + `body` combinations.
+- TF-IDF cosine near-duplicate candidate pairs crossing split boundaries.
+- Repeated-subject patterns crossing split boundaries.
 - Suspicious label leakage diagnostics, such as label words appearing in
   classifier text.
 - Classifier feature-column policy, including explicit rejection of `answer`.
@@ -168,6 +206,10 @@ card links the creator organization as Softoft.
   organization's triage policy.
 - Some English records have missing subjects; `body` is therefore the more
   reliable core text field.
+- The near-duplicate audit found a small number of high-similarity cross-split
+  examples in synthetic generated text. The split remains defensible, but
+  future releases should continue to track these candidates before changing
+  evaluation claims.
 - The `answer` field can support later retrieval/RAG experiments but must never
   be mixed into classifier inputs.
 - No model performance, fairness, calibration, or production-readiness claims
