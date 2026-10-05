@@ -1,9 +1,11 @@
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from ticketpilot.evaluation import (
     evaluate_abstention,
+    multiclass_calibration_metrics,
     predict_queue_routes,
     select_abstention_threshold,
 )
@@ -13,6 +15,7 @@ from ticketpilot.training import (
     QUEUE_LABEL_COLUMN,
     build_confidence_model,
     select_queue_model,
+    train_and_evaluate_queue_baselines,
     validate_prepared_dataset,
 )
 
@@ -34,6 +37,35 @@ def queue_training_frame() -> pd.DataFrame:
                 "ticket_row_id": f"ticket-{index:06d}",
                 "ticket_text_group_id": f"group-{index:06d}",
                 SPLIT_COLUMN: split,
+                CLASSIFIER_TEXT_COLUMN: text,
+                QUEUE_LABEL_COLUMN: queue,
+                "priority": "medium",
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def complete_queue_training_frame() -> pd.DataFrame:
+    rows: list[dict[str, str]] = []
+    queues = ["Technical Support", "Billing and Payments", "Product Support"]
+    split_by_index = {
+        **{index: "train" for index in range(30)},
+        **{index: "validation" for index in range(30, 39)},
+        **{index: "test" for index in range(39, 48)},
+    }
+    for index in range(48):
+        queue = queues[index % len(queues)]
+        if queue == "Technical Support":
+            text = f"vpn login outage device network access {index}"
+        elif queue == "Billing and Payments":
+            text = f"invoice payment refund billing receipt {index}"
+        else:
+            text = f"mobile app crash product bug screen {index}"
+        rows.append(
+            {
+                "ticket_row_id": f"ticket-{index:06d}",
+                "ticket_text_group_id": f"group-{index:06d}",
+                SPLIT_COLUMN: split_by_index[index],
                 CLASSIFIER_TEXT_COLUMN: text,
                 QUEUE_LABEL_COLUMN: queue,
                 "priority": "medium",
@@ -126,6 +158,39 @@ def test_threshold_selection_uses_validation_predictions() -> None:
 
     assert selection["selection_source"] == "validation_split"
     assert 0.0 <= selection["selected_threshold"] <= 1.0
+
+
+def test_ece_uses_equal_width_top_label_bins() -> None:
+    metrics = multiclass_calibration_metrics(
+        pd.Series(["A", "B"]),
+        np.asarray([[0.8, 0.2], [0.4, 0.6]]),
+        labels=["A", "B"],
+        n_bins=2,
+    )
+
+    assert metrics["brier_score"] == 0.2
+    assert round(metrics["expected_calibration_error"], 6) == 0.3
+    assert metrics["bins"][1]["count"] == 2
+    assert metrics["bins"][1]["accuracy"] == 1.0
+
+
+def test_queue_report_marks_test_threshold_results_as_reporting_only(
+    tmp_path: Any,
+) -> None:
+    report = train_and_evaluate_queue_baselines(
+        complete_queue_training_frame(),
+        artifact_dir=tmp_path / "artifacts",
+        report_dir=tmp_path / "reports",
+    )
+
+    threshold_selection = report["abstention"]["threshold_selection"]
+    test_result = report["abstention"]["test_result"]
+
+    assert threshold_selection["selection_source"] == "validation_split"
+    assert test_result["threshold"] == threshold_selection["selected_threshold"]
+    assert test_result["threshold_source"] == "validation_split"
+    assert test_result["reporting_only"] is True
+    assert report["confidence_analysis"]["test"]["reporting_only"] is True
 
 
 def test_answer_text_cannot_enter_classifier_features() -> None:

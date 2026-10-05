@@ -27,6 +27,7 @@ from ticketpilot.config import (
 )
 from ticketpilot.evaluation import (
     evaluate_multiclass_predictions,
+    multiclass_calibration_metrics,
     save_confusion_matrix_csv,
     save_confusion_matrix_svg,
 )
@@ -162,7 +163,8 @@ def train_and_evaluate_tensorflow_queue_model(
     )
 
     sklearn_comparison = build_sklearn_comparison(
-        tensorflow_metrics=test_metrics,
+        tensorflow_validation_metrics=validation_metrics,
+        tensorflow_test_metrics=test_metrics,
         tensorflow_artifact_size=model_path.stat().st_size,
         tensorflow_training_seconds=training_seconds,
         sklearn_report=sklearn_report,
@@ -249,25 +251,17 @@ def calibration_metrics(
     probabilities = probabilities / probabilities.sum(axis=1, keepdims=True)
     label_to_index = {label: index for index, label in enumerate(labels)}
     y_indices = np.asarray([label_to_index[str(label)] for label in y_true])
-    confidence = probabilities.max(axis=1)
-    correct = probabilities.argmax(axis=1) == y_indices
-    ece = 0.0
-    bin_edges = np.linspace(0.0, 1.0, n_bins + 1)
-    for left, right in zip(bin_edges[:-1], bin_edges[1:], strict=True):
-        if right == 1.0:
-            mask = (confidence >= left) & (confidence <= right)
-        else:
-            mask = (confidence >= left) & (confidence < right)
-        if not np.any(mask):
-            continue
-        bin_confidence = float(confidence[mask].mean())
-        bin_accuracy = float(correct[mask].mean())
-        ece += float(mask.mean()) * abs(bin_accuracy - bin_confidence)
+    metrics = multiclass_calibration_metrics(
+        y_true,
+        probabilities,
+        labels=labels,
+        n_bins=n_bins,
+    )
     return {
+        **metrics,
         "negative_log_loss": float(
             log_loss(y_indices, probabilities, labels=list(range(len(labels))))
         ),
-        "expected_calibration_error": float(ece),
     }
 
 
@@ -291,40 +285,47 @@ def save_training_history(
 
 def build_sklearn_comparison(
     *,
-    tensorflow_metrics: dict[str, Any],
+    tensorflow_validation_metrics: dict[str, Any],
+    tensorflow_test_metrics: dict[str, Any],
     tensorflow_artifact_size: int,
     tensorflow_training_seconds: float,
     sklearn_report: dict[str, Any],
 ) -> dict[str, Any]:
-    """Compare TensorFlow metrics with the strongest sklearn baseline."""
+    """Compare TensorFlow with the selected sklearn baseline by split."""
     sklearn_test = sklearn_report["test_metrics"]
     sklearn_selected = sklearn_report["selected_model"]
+    sklearn_validation = sklearn_report.get("confidence_model_validation_metrics")
+    if not isinstance(sklearn_validation, dict):
+        sklearn_validation = sklearn_report["validation_metrics"][
+            sklearn_selected["name"]
+        ]
+    test_comparison = _metric_comparison(
+        sklearn_metrics=sklearn_test,
+        tensorflow_metrics=tensorflow_test_metrics,
+    )
+    validation_comparison = _metric_comparison(
+        sklearn_metrics=sklearn_validation,
+        tensorflow_metrics=tensorflow_validation_metrics,
+    )
     return {
         "sklearn_model": sklearn_selected["name"],
         "tensorflow_model": "tensorflow_textvectorization_embedding_conv1d",
-        "macro_f1": {
-            "sklearn": sklearn_test["macro_f1"],
-            "tensorflow": tensorflow_metrics["macro_f1"],
-            "delta_tensorflow_minus_sklearn": tensorflow_metrics["macro_f1"]
-            - sklearn_test["macro_f1"],
+        "selection_metric_source": "validation",
+        "selection_metric": "macro_f1",
+        "validation": validation_comparison,
+        "test": {
+            **test_comparison,
+            "reporting_only": True,
         },
-        "weighted_f1": {
-            "sklearn": sklearn_test["weighted_f1"],
-            "tensorflow": tensorflow_metrics["weighted_f1"],
-            "delta_tensorflow_minus_sklearn": tensorflow_metrics["weighted_f1"]
-            - sklearn_test["weighted_f1"],
-        },
-        "top_k_accuracy": {
-            "sklearn": sklearn_test["top_k_accuracy"],
-            "tensorflow": tensorflow_metrics["top_k_accuracy"],
-            "delta_tensorflow_minus_sklearn": tensorflow_metrics["top_k_accuracy"]
-            - sklearn_test["top_k_accuracy"],
-        },
+        "macro_f1": test_comparison["macro_f1"],
+        "weighted_f1": test_comparison["weighted_f1"],
+        "top_k_accuracy": test_comparison["top_k_accuracy"],
         "inference_latency_ms_per_ticket": {
             "sklearn": sklearn_test["inference_latency"]["milliseconds_per_ticket"],
-            "tensorflow": tensorflow_metrics["inference_latency"][
+            "tensorflow": tensorflow_test_metrics["inference_latency"][
                 "milliseconds_per_ticket"
             ],
+            "source": "test_reporting_only",
         },
         "artifact_size_bytes": {
             "sklearn": sklearn_selected["artifact_size_bytes"],
@@ -337,22 +338,44 @@ def build_sklearn_comparison(
     }
 
 
-def deployment_decision(comparison: dict[str, Any]) -> dict[str, str]:
-    """Choose the current deployment candidate based on measured metrics."""
-    if comparison["macro_f1"]["tensorflow"] > comparison["macro_f1"]["sklearn"]:
+def deployment_decision(comparison: dict[str, Any]) -> dict[str, Any]:
+    """Choose the deployment family from validation metrics only."""
+    validation_macro_f1 = comparison["validation"]["macro_f1"]
+    if validation_macro_f1["tensorflow"] > validation_macro_f1["sklearn"]:
         return {
             "selected_model": "tensorflow_textvectorization_embedding_conv1d",
+            "selection_metric": "macro_f1",
+            "selection_metric_source": "validation",
+            "final_test_usage": "reporting_only_after_family_selection",
             "reason": (
-                "TensorFlow has higher final-test macro F1 than the strongest "
+                "TensorFlow has higher validation macro F1 than the selected "
                 "sklearn baseline in the current run."
             ),
+            "operational_factors_considered": [
+                "validation_macro_f1_primary",
+                "validation_weighted_f1",
+                "top_k_accuracy",
+                "inference_latency",
+                "artifact_size",
+            ],
         }
     return {
         "selected_model": comparison["sklearn_model"],
+        "selection_metric": "macro_f1",
+        "selection_metric_source": "validation",
+        "final_test_usage": "reporting_only_after_family_selection",
         "reason": (
             "The sklearn baseline remains preferred because TensorFlow did not "
-            "exceed its final-test macro F1."
+            "exceed its validation macro F1; lower TensorFlow latency is treated "
+            "as secondary to routing quality."
         ),
+        "operational_factors_considered": [
+            "validation_macro_f1_primary",
+            "validation_weighted_f1",
+            "top_k_accuracy",
+            "inference_latency",
+            "artifact_size",
+        ],
     }
 
 
@@ -384,3 +407,33 @@ def _load_json(path: Path) -> dict[str, Any]:
     if not isinstance(loaded, dict):
         raise ValueError(f"Expected JSON object in {path}.")
     return loaded
+
+
+def _metric_comparison(
+    *,
+    sklearn_metrics: dict[str, Any],
+    tensorflow_metrics: dict[str, Any],
+) -> dict[str, dict[str, float]]:
+    return {
+        "macro_f1": _metric_delta(sklearn_metrics, tensorflow_metrics, "macro_f1"),
+        "weighted_f1": _metric_delta(
+            sklearn_metrics, tensorflow_metrics, "weighted_f1"
+        ),
+        "top_k_accuracy": _metric_delta(
+            sklearn_metrics, tensorflow_metrics, "top_k_accuracy"
+        ),
+    }
+
+
+def _metric_delta(
+    sklearn_metrics: dict[str, Any],
+    tensorflow_metrics: dict[str, Any],
+    metric_name: str,
+) -> dict[str, float]:
+    sklearn_value = float(sklearn_metrics[metric_name])
+    tensorflow_value = float(tensorflow_metrics[metric_name])
+    return {
+        "sklearn": sklearn_value,
+        "tensorflow": tensorflow_value,
+        "delta_tensorflow_minus_sklearn": tensorflow_value - sklearn_value,
+    }

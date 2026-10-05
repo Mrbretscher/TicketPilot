@@ -11,7 +11,10 @@ from ticketpilot.tensorflow_modeling import (
     compute_class_weights,
     set_tensorflow_seed,
 )
-from ticketpilot.tensorflow_training import deployment_decision
+from ticketpilot.tensorflow_training import (
+    build_sklearn_comparison,
+    deployment_decision,
+)
 
 
 def tiny_text_frame() -> pd.DataFrame:
@@ -151,10 +154,54 @@ def test_deployment_decision_keeps_sklearn_when_tensorflow_does_not_win() -> Non
     decision = deployment_decision(
         {
             "sklearn_model": "tfidf_linear_svc",
-            "macro_f1": {"sklearn": 0.68, "tensorflow": 0.60},
+            "validation": {"macro_f1": {"sklearn": 0.68, "tensorflow": 0.60}},
         }
     )
 
+    assert decision["selected_model"] == "tfidf_linear_svc"
+    assert decision["selection_metric_source"] == "validation"
+    assert decision["final_test_usage"] == "reporting_only_after_family_selection"
+
+
+def test_deployment_decision_uses_validation_metrics_not_final_test() -> None:
+    comparison = build_sklearn_comparison(
+        tensorflow_validation_metrics={
+            "macro_f1": 0.40,
+            "weighted_f1": 0.41,
+            "top_k_accuracy": 0.70,
+        },
+        tensorflow_test_metrics={
+            "macro_f1": 0.99,
+            "weighted_f1": 0.99,
+            "top_k_accuracy": 0.99,
+            "inference_latency": {"milliseconds_per_ticket": 0.1},
+        },
+        tensorflow_artifact_size=456,
+        tensorflow_training_seconds=1.2,
+        sklearn_report={
+            "selected_model": {
+                "name": "tfidf_linear_svc",
+                "artifact_size_bytes": 123,
+            },
+            "confidence_model_validation_metrics": {
+                "macro_f1": 0.68,
+                "weighted_f1": 0.66,
+                "top_k_accuracy": 0.85,
+            },
+            "validation_metrics": {},
+            "test_metrics": {
+                "macro_f1": 0.60,
+                "weighted_f1": 0.61,
+                "top_k_accuracy": 0.80,
+                "inference_latency": {"milliseconds_per_ticket": 0.5},
+            },
+        },
+    )
+
+    decision = deployment_decision(comparison)
+
+    assert comparison["selection_metric_source"] == "validation"
+    assert comparison["test"]["reporting_only"] is True
     assert decision["selected_model"] == "tfidf_linear_svc"
 
 

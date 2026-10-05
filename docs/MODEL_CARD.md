@@ -60,6 +60,14 @@ The final test split is reserved for final reporting and is not used for model
 selection, hyperparameter selection, calibration selection, or abstention
 threshold selection.
 
+A near-duplicate cross-split leakage audit was run on 2026-10-05 using
+normalized `subject` + `body` text, TF-IDF features, cosine similarity, and
+split-pair nearest-neighbor comparisons. The audit found 98 cross-split
+candidate pairs at similarity `>= 0.90`, 12 at `>= 0.95`, and 4 at `>= 0.98`.
+All 98 candidate pairs had the same queue and priority labels across the split
+boundary. The audit conclusion was no material leakage, so the existing split
+and reported metrics remain unchanged.
+
 ## Baselines
 
 Implemented fixed scikit-learn pipelines:
@@ -121,12 +129,32 @@ validation coverage target of 70%.
 
 Selected threshold: 0.30.
 
+Calibration method:
+
+- LinearSVC confidence uses `CalibratedClassifierCV(method="sigmoid", cv=3)`.
+- Brier score is the mean summed squared error between predicted class
+  probabilities and one-hot labels.
+- Expected calibration error uses 10 equal-width top-label confidence bins over
+  `[0, 1]`.
+
+Validation calibration:
+
+- Brier score: 0.5677
+- Expected calibration error: 0.2059
+- Median confidence: 0.3971
+
 Validation at threshold 0.30:
 
 - Coverage: 83.18%
 - Sent to review: 16.82%
 - Automatically routed accuracy: 0.6865
 - Automatically routed macro F1: 0.7098
+
+Final test calibration, reported after the validation-selected threshold:
+
+- Brier score: 0.5279
+- Expected calibration error: 0.1997
+- Median confidence: 0.4471
 
 Final test at threshold 0.30:
 
@@ -138,12 +166,26 @@ Final test at threshold 0.30:
 The threshold is not operationally approved. It is an experiment showing how
 human review could be layered over queue routing.
 
+## Rare Queue Analysis
+
+The queue report flags low-support queues using support `< 100` and low-recall
+queues using recall `< 0.60`. Final-test low-support queues are General Inquiry,
+Human Resources, Sales and Pre-Sales, and Service Outages and Maintenance.
+Final-test low-recall queues are Customer Service, General Inquiry, IT Support,
+Returns and Exchanges, and Sales and Pre-Sales.
+
+Operational consequence: weak and rare queue predictions remain recommendations
+for human review. TicketPilot does not introduce autonomous class-specific
+routing behavior or queue-specific automation based on these findings.
+
 ## Artifacts
 
 Generated artifacts are ignored by Git:
 
 - `reports/queue_baseline/queue_baseline_metrics.json`
 - `reports/queue_baseline/plots/validation_model_comparison.svg`
+- `reports/queue_baseline/plots/validation_reliability.svg`
+- `reports/queue_baseline/plots/test_reliability.svg`
 - `reports/queue_baseline/plots/test_confusion_matrix.svg`
 - `reports/queue_baseline/tables/test_confusion_matrix.csv`
 - `artifacts/queue_baseline/selected_queue_router.joblib`
@@ -214,9 +256,14 @@ Per-class recall comparison:
 | Technical Support | 0.7915 | 0.3775 |
 
 Deployment decision: keep `tfidf_linear_svc` as the selected deployment
-candidate. TensorFlow does not beat the sklearn baseline on macro F1, weighted
-F1, or top-3 accuracy in this run. Its slightly lower inference latency does not
-offset the much weaker routing quality.
+candidate. The deployment-family decision is based on validation metrics and
+documented operational factors. In the regenerated comparison, the calibrated
+sklearn confidence model has validation macro F1 0.6455, validation weighted F1
+0.6235, and validation top-3 accuracy 0.8935. TensorFlow has validation macro F1
+0.3745, validation weighted F1 0.3780, and validation top-3 accuracy 0.7396.
+TensorFlow's lower final-test latency is treated as secondary to validation
+routing quality. Final-test comparison metrics are reporting-only after the
+family decision.
 
 TensorFlow artifacts are ignored by Git:
 
@@ -231,14 +278,22 @@ TensorFlow artifacts are ignored by Git:
 
 - The dataset is synthetic and may not reflect a real organization's routing
   policies or ticket-writing patterns.
+- The near-duplicate audit found a small number of high-similarity generated
+  template variants across splits, including 4 train/test pairs at TF-IDF cosine
+  similarity `>= 0.98`. The examples were same-label and did not justify
+  rebuilding the split, but they remain a residual optimism risk for reported
+  classifier and retrieval metrics.
 - Some queues have much smaller support than others, so macro metrics and
   per-class recall matter more than accuracy alone.
 - General Inquiry and Human Resources have small test supports, so estimates for
   those classes are less stable.
 - The abstention threshold is selected on validation data only and is not an
   approved operational policy.
+- Historical project artifacts have already inspected final-test metrics, so
+  the current final test split is a fixed reporting split rather than a pristine
+  never-inspected holdout for future release claims.
 - The TensorFlow Conv1D model underperforms the sklearn text baseline and should
-  not replace it without further evidence.
+  not replace it without stronger validation evidence.
 - No priority classifier, monitoring, production deployment, or autonomous IT
   action workflow has been implemented.
 - Retrieval evidence may include source priority metadata from resolved tickets,

@@ -48,6 +48,12 @@ and uses deterministic grouped splitting rather than silently dropping classes.
 The selected strategy and any small-class warnings are written to
 `reports/dataset_preparation/dataset_summary.json`, which is ignored by Git.
 
+The current split was preserved after a focused near-duplicate cross-split audit
+run on 2026-10-05. That audit compared normalized `subject` + `body` text across
+train/validation, train/test, and validation/test boundaries with a scikit-learn
+TF-IDF cosine nearest-neighbor method. It did not alter train, validation, or
+test assignments.
+
 ## Leakage Controls
 
 Evaluation must verify that classifier inputs exclude resolved-answer text, resolution notes, final response text, close notes, post-resolution tags, and fields unavailable before routing.
@@ -77,6 +83,27 @@ Preparation diagnostics report queue distribution, priority distribution, text
 length, missing values, exact duplicate text groups, repeated text patterns, and
 high-similarity text signals before any model training.
 
+The near-duplicate audit writes its machine-readable output to
+`reports/near_duplicate_leakage/audit_report.json`, which is ignored by Git. The
+current report found 98 cross-split candidate pairs at cosine similarity
+`>= 0.90`, 12 at `>= 0.95`, and 4 at `>= 0.98`.
+
+Counts by split pair:
+
+| Split pair | `>= 0.90` | `>= 0.95` | `>= 0.98` |
+| --- | ---: | ---: | ---: |
+| Train vs validation | 48 | 5 | 0 |
+| Train vs final test | 45 | 6 | 4 |
+| Validation vs final test | 5 | 1 | 0 |
+
+All 98 candidate pairs at `>= 0.90` have matching queue and priority labels.
+The audit found 31 repeated-subject cross-split pairs, including 9 with
+different queue labels, but those repeated-subject-only cases were not enough
+evidence to justify rebuilding the split because the primary `subject` + `body`
+near-duplicate audit did not show material label-conflicting leakage. Existing
+metrics are preserved, with a small residual optimism risk noted for the handful
+of very high-similarity held-out rows.
+
 ## Metrics
 
 Primary metrics:
@@ -90,7 +117,14 @@ Secondary metrics:
 
 - accuracy
 - confusion matrix
-- calibration curves or expected calibration error where appropriate
+- calibration diagnostics for confidence-bearing models:
+  - multiclass Brier score, computed as the mean summed squared error between
+    class probabilities and one-hot labels
+  - expected calibration error, computed with 10 equal-width top-label
+    confidence bins over `[0, 1]`
+  - reliability diagrams for validation and final test reporting
+  - confidence distributions and coverage/performance curves across fixed
+    confidence thresholds
 - human-review precision and recall
 
 Milestone 3 also reports weighted F1, top-k routing accuracy, inference latency,
@@ -116,6 +150,23 @@ Validation model selection uses macro F1. The selected model is
 provide calibrated probabilities, the final confidence model uses sigmoid
 calibration fit without final-test access.
 
+For abstention and review logic, TicketPilot evaluates the selected calibrated
+confidence model separately from the uncalibrated validation model-selection
+score. The calibrated sklearn confidence model has validation macro F1 0.6455.
+Validation calibration diagnostics for the selected calibrated model:
+
+- Brier score: 0.5677
+- Expected calibration error: 0.2059
+- Median confidence: 0.3971
+
+Final test calibration diagnostics are reporting-only:
+
+- Brier score: 0.5279
+- Expected calibration error: 0.1997
+- Median confidence: 0.4471
+
+Reliability plots are stored under `reports/queue_baseline/plots/`.
+
 Final test metrics for the selected calibrated LinearSVC baseline:
 
 - Accuracy: 0.6673
@@ -130,6 +181,28 @@ produces above-threshold recommendations for 90.49% of test tickets, flags
 9.51% for additional review, and reaches 0.7009 accuracy on the
 above-threshold subset. Human review is still required before any response or
 operational next step.
+
+The per-queue report identifies low-support queues using support `< 100` and
+low-recall queues using recall `< 0.60`. On the final test split, low-support
+queues are General Inquiry, Human Resources, Sales and Pre-Sales, and Service
+Outages and Maintenance. Low-recall queues are Customer Service, General
+Inquiry, IT Support, Returns and Exchanges, and Sales and Pre-Sales. These are
+methodology flags only; TicketPilot v1 remains human-reviewed and does not add
+autonomous class-specific routing rules.
+
+Deployment-family selection between the sklearn baseline and TensorFlow Conv1D
+model is based on validation metrics and documented operational factors, not
+final-test metrics. The current regenerated comparison keeps sklearn
+`tfidf_linear_svc` because the calibrated sklearn confidence model has
+validation macro F1 0.6455 versus TensorFlow validation macro F1 0.3745. Final
+test comparison metrics are retained only for reporting after that family
+selection.
+
+Methodology limitation: historical project documentation and artifacts have
+already inspected final-test metrics. The final test split is therefore still
+used as the fixed reporting split for this portfolio milestone, but it should
+not be described as a pristine never-inspected holdout for future release
+claims.
 
 ## Reporting
 

@@ -17,6 +17,11 @@ from sklearn.metrics import (
     recall_score,
 )
 
+DEFAULT_CONFIDENCE_THRESHOLDS = [round(value / 100, 2) for value in range(0, 101, 5)]
+DEFAULT_CALIBRATION_BINS = 10
+LOW_SUPPORT_QUEUE_THRESHOLD = 100
+LOW_RECALL_QUEUE_THRESHOLD = 0.60
+
 
 def evaluate_queue_classifier(
     estimator: Any,
@@ -126,6 +131,22 @@ def predict_queue_routes(
     )
 
 
+def predict_queue_probabilities(
+    estimator: Any,
+    x: pd.Series,
+    *,
+    labels: list[str],
+) -> np.ndarray:
+    """Return per-class probabilities aligned to labels."""
+    if not hasattr(estimator, "predict_proba"):
+        raise ValueError("Estimator does not expose calibrated probabilities.")
+    scores = np.asarray(estimator.predict_proba(x), dtype=float)
+    estimator_classes = [str(label) for label in estimator.classes_]
+    return _normalize_probability_rows(
+        _align_score_columns(scores, estimator_classes, labels)
+    )
+
+
 def class_score_matrix(
     estimator: Any, x: pd.Series, *, labels: list[str]
 ) -> np.ndarray:
@@ -148,6 +169,195 @@ def class_score_matrix(
     for row_index, prediction in enumerate(predictions):
         scores[row_index, label_to_index[str(prediction)]] = 1.0
     return scores
+
+
+def multiclass_calibration_metrics(
+    y_true: pd.Series,
+    probabilities: np.ndarray,
+    *,
+    labels: list[str],
+    n_bins: int = DEFAULT_CALIBRATION_BINS,
+) -> dict[str, Any]:
+    """Return Brier score and top-label ECE for multiclass probabilities."""
+    probabilities = _normalize_probability_rows(probabilities)
+    if probabilities.shape[1] != len(labels):
+        raise ValueError(
+            "Probability column count does not match label count: "
+            f"{probabilities.shape[1]} != {len(labels)}."
+        )
+    label_to_index = {label: index for index, label in enumerate(labels)}
+    y_indices = np.asarray([label_to_index[str(label)] for label in y_true])
+    predicted_indices = probabilities.argmax(axis=1)
+    confidence = probabilities.max(axis=1)
+    correct = predicted_indices == y_indices
+    one_hot = np.zeros_like(probabilities)
+    one_hot[np.arange(len(y_indices)), y_indices] = 1.0
+    bins = calibration_bins(confidence, correct, n_bins=n_bins)
+    total = max(len(y_indices), 1)
+    ece = sum(
+        (bin_row["count"] / total) * abs(bin_row["accuracy"] - bin_row["confidence"])
+        for bin_row in bins
+    )
+    return {
+        "method": "top_label_equal_width_bins",
+        "bin_count": n_bins,
+        "binning": (
+            "Equal-width confidence bins over [0, 1]; bins are left-inclusive "
+            "and right-exclusive except the final bin, which includes 1.0."
+        ),
+        "brier_score": float(np.mean(np.sum((probabilities - one_hot) ** 2, axis=1))),
+        "expected_calibration_error": float(ece),
+        "confidence_distribution": confidence_distribution(confidence),
+        "bins": bins,
+    }
+
+
+def calibration_bins(
+    confidence: np.ndarray,
+    correct: np.ndarray,
+    *,
+    n_bins: int = DEFAULT_CALIBRATION_BINS,
+) -> list[dict[str, float | int]]:
+    """Summarize confidence and accuracy in equal-width calibration bins."""
+    if n_bins <= 0:
+        raise ValueError("n_bins must be positive.")
+    bin_edges = np.linspace(0.0, 1.0, n_bins + 1)
+    rows: list[dict[str, float | int]] = []
+    total = max(len(confidence), 1)
+    for index, (left, right) in enumerate(
+        zip(bin_edges[:-1], bin_edges[1:], strict=True)
+    ):
+        if index == n_bins - 1:
+            mask = (confidence >= left) & (confidence <= right)
+        else:
+            mask = (confidence >= left) & (confidence < right)
+        count = int(mask.sum())
+        if count:
+            mean_confidence = float(confidence[mask].mean())
+            accuracy = float(correct[mask].mean())
+        else:
+            mean_confidence = 0.0
+            accuracy = 0.0
+        rows.append(
+            {
+                "bin_index": index,
+                "left_edge": float(left),
+                "right_edge": float(right),
+                "count": count,
+                "fraction": float(count / total),
+                "confidence": mean_confidence,
+                "accuracy": accuracy,
+                "gap": float(accuracy - mean_confidence),
+            }
+        )
+    return rows
+
+
+def confidence_distribution(confidence: np.ndarray | pd.Series) -> dict[str, Any]:
+    """Return a compact distribution summary for confidence values."""
+    values = np.asarray(confidence, dtype=float)
+    if values.size == 0:
+        return {
+            "count": 0,
+            "min": None,
+            "p25": None,
+            "median": None,
+            "mean": None,
+            "p75": None,
+            "p90": None,
+            "p95": None,
+            "max": None,
+        }
+    return {
+        "count": int(values.size),
+        "min": float(values.min()),
+        "p25": float(np.quantile(values, 0.25)),
+        "median": float(np.quantile(values, 0.50)),
+        "mean": float(values.mean()),
+        "p75": float(np.quantile(values, 0.75)),
+        "p90": float(np.quantile(values, 0.90)),
+        "p95": float(np.quantile(values, 0.95)),
+        "max": float(values.max()),
+    }
+
+
+def coverage_performance_curve(
+    y_true: pd.Series,
+    y_pred: pd.Series,
+    confidence: pd.Series,
+    *,
+    labels: list[str],
+    thresholds: list[float] | None = None,
+) -> list[dict[str, Any]]:
+    """Evaluate coverage and performance across confidence thresholds."""
+    if thresholds is None:
+        thresholds = DEFAULT_CONFIDENCE_THRESHOLDS
+    return [
+        evaluate_abstention(
+            y_true,
+            y_pred,
+            confidence,
+            threshold=threshold,
+            labels=labels,
+        )
+        for threshold in thresholds
+    ]
+
+
+def per_queue_confidence_report(
+    y_true: pd.Series,
+    y_pred: pd.Series,
+    confidence: pd.Series,
+    *,
+    threshold: float,
+    labels: list[str],
+    low_support_threshold: int = LOW_SUPPORT_QUEUE_THRESHOLD,
+    low_recall_threshold: float = LOW_RECALL_QUEUE_THRESHOLD,
+) -> dict[str, Any]:
+    """Return per-queue quality, confidence, and review-rate diagnostics."""
+    report = classification_report(
+        y_true,
+        y_pred,
+        labels=labels,
+        output_dict=True,
+        zero_division=0,
+    )
+    confidence_values = confidence.astype(float)
+    rows: dict[str, dict[str, Any]] = {}
+    low_support_queues: list[str] = []
+    low_recall_queues: list[str] = []
+    for label in labels:
+        mask = y_true.astype(str).eq(label)
+        support = int(report[label]["support"])
+        recall = float(report[label]["recall"])
+        if support < low_support_threshold:
+            low_support_queues.append(label)
+        if recall < low_recall_threshold:
+            low_recall_queues.append(label)
+        queue_confidence = confidence_values[mask]
+        review_rate = float((queue_confidence < threshold).mean()) if support else 0.0
+        rows[label] = {
+            "support": support,
+            "precision": float(report[label]["precision"]),
+            "recall": recall,
+            "f1": float(report[label]["f1-score"]),
+            "confidence_distribution": confidence_distribution(queue_confidence),
+            "review_rate_at_selected_threshold": review_rate,
+            "low_support": support < low_support_threshold,
+            "low_recall": recall < low_recall_threshold,
+        }
+    return {
+        "selected_threshold": float(threshold),
+        "low_support_threshold": low_support_threshold,
+        "low_recall_threshold": low_recall_threshold,
+        "low_support_queues": low_support_queues,
+        "low_recall_queues": low_recall_queues,
+        "operational_note": (
+            "Queue predictions remain recommendations subject to human review; "
+            "no class-specific autonomous routing behavior is introduced."
+        ),
+        "queues": rows,
+    }
 
 
 def top_k_accuracy(
@@ -176,18 +386,15 @@ def select_abstention_threshold(
 ) -> dict[str, Any]:
     """Select a validation-only confidence threshold for recommendation coverage."""
     if thresholds is None:
-        thresholds = [round(value / 100, 2) for value in range(0, 101, 5)]
+        thresholds = DEFAULT_CONFIDENCE_THRESHOLDS
 
-    rows = [
-        evaluate_abstention(
-            y_true,
-            predictions["predicted_queue"],
-            predictions["confidence"],
-            threshold=threshold,
-            labels=labels,
-        )
-        for threshold in thresholds
-    ]
+    rows = coverage_performance_curve(
+        y_true,
+        predictions["predicted_queue"],
+        predictions["confidence"],
+        thresholds=thresholds,
+        labels=labels,
+    )
     eligible = [row for row in rows if row["coverage"] >= minimum_coverage]
     candidates = eligible if eligible else rows
     selected = max(
@@ -338,6 +545,68 @@ def save_model_comparison_svg(
     return output_path
 
 
+def save_reliability_svg(
+    calibration: dict[str, Any],
+    output_path: Path,
+    *,
+    title: str,
+) -> Path:
+    """Save a lightweight reliability diagram from calibration bins."""
+    bins = calibration["bins"]
+    width = 560
+    height = 420
+    plot_left = 72
+    plot_top = 52
+    plot_size = 300
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">',
+        "<style>text{font-family:Arial,sans-serif;font-size:12px}</style>",
+        f'<text x="10" y="24" font-size="16">{_escape(title)}</text>',
+        f'<line x1="{plot_left}" y1="{plot_top + plot_size}" '
+        f'x2="{plot_left + plot_size}" y2="{plot_top}" '
+        'stroke="#555" stroke-dasharray="4 4"/>',
+        f'<rect x="{plot_left}" y="{plot_top}" width="{plot_size}" '
+        f'height="{plot_size}" fill="none" stroke="#333"/>',
+    ]
+    for tick in range(0, 11):
+        value = tick / 10
+        x = plot_left + value * plot_size
+        y = plot_top + plot_size - value * plot_size
+        parts.append(
+            f'<text x="{x - 8:.1f}" y="{plot_top + plot_size + 20}">{value:.1f}</text>'
+        )
+        parts.append(f'<text x="28" y="{y + 4:.1f}">{value:.1f}</text>')
+    bar_width = plot_size / max(len(bins), 1) * 0.72
+    for row in bins:
+        confidence = float(row["confidence"])
+        accuracy = float(row["accuracy"])
+        count = int(row["count"])
+        if count == 0:
+            continue
+        x = plot_left + confidence * plot_size - bar_width / 2
+        y = plot_top + plot_size - accuracy * plot_size
+        bar_height = accuracy * plot_size
+        parts.append(
+            f'<rect x="{x:.1f}" y="{y:.1f}" width="{bar_width:.1f}" '
+            f'height="{bar_height:.1f}" fill="#2563eb" opacity="0.72"/>'
+        )
+    parts.extend(
+        [
+            f'<text x="{plot_left + 84}" y="{plot_top + plot_size + 46}">'
+            "Mean confidence</text>",
+            f'<text x="8" y="{plot_top + 145}" transform="rotate(-90 8 '
+            f'{plot_top + 145})">Accuracy</text>',
+            f'<text x="{plot_left}" y="{height - 28}">'
+            f"ECE={float(calibration['expected_calibration_error']):.4f}; "
+            f"Brier={float(calibration['brier_score']):.4f}</text>",
+            "</svg>",
+        ]
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text("\n".join(parts), encoding="utf-8")
+    return output_path
+
+
 def _align_score_columns(
     scores: np.ndarray,
     estimator_classes: list[str],
@@ -348,6 +617,14 @@ def _align_score_columns(
     for output_index, label in enumerate(labels):
         aligned[:, output_index] = scores[:, class_to_index[label]]
     return aligned
+
+
+def _normalize_probability_rows(probabilities: np.ndarray) -> np.ndarray:
+    clipped = np.clip(np.asarray(probabilities, dtype=float), 0.0, 1.0)
+    row_sums = clipped.sum(axis=1, keepdims=True)
+    row_sums[row_sums == 0.0] = 1.0
+    normalized: np.ndarray = clipped / row_sums
+    return normalized
 
 
 def _escape(value: str) -> str:
