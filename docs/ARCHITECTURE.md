@@ -24,7 +24,7 @@ support-action executor.
 
 3. Baseline classification
    - Use scikit-learn TF-IDF features and simple classifiers.
-   - Predict support queue and priority.
+   - Recommend a support queue for human review.
    - Report calibrated confidence where appropriate.
 
 4. Advanced text modeling
@@ -76,9 +76,9 @@ workflow:
 2. normalize ticket text with minimal whitespace cleanup
 3. construct classifier input from `subject + body`
 4. predict support queue with the persisted scikit-learn queue router
-5. expose priority only when a future priority artifact is available
+5. leave automated priority prediction unsupported for recruiter-ready v1
 6. apply classifier-confidence logic
-7. retrieve similar solved tickets from the train-only retrieval index
+7. retrieve similar solved tickets from the train-only TF-IDF retrieval index
 8. apply evidence-quality logic
 9. generate a grounded response draft only when gates pass
 10. return one structured result that always requires human review
@@ -99,6 +99,12 @@ not-ready response and inference endpoints return `503` with sanitized error
 details. Request schemas validate malformed payloads and maximum text length.
 The API does not log API keys, expose stack traces intentionally, send email,
 or execute support actions.
+
+The offline retrieval evaluation selected `hybrid_tfidf_semantic_50_50`, but
+the current local service does not deploy that candidate because new queries
+require a sentence-transformers encoder that is not preserved as a local
+project artifact. The deployed service reports the actual active retriever in
+`/model-info` and does not silently claim hybrid retrieval while serving TF-IDF.
 
 ## Streamlit Dashboard
 

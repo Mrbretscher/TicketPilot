@@ -8,6 +8,7 @@ import pytest
 
 from ticketpilot.drafting import FakeDraftGenerator
 from ticketpilot.orchestration import (
+    ArtifactLoadError,
     TicketPilotService,
     TicketValidationError,
     load_ticketpilot_service,
@@ -130,6 +131,19 @@ def test_analyze_returns_grounded_draft_with_citations() -> None:
     assert "grounded_draft_ready_for_review" in result.reasons
 
 
+def test_analyze_uses_configured_retriever_evidence() -> None:
+    service = orchestration_service()
+
+    result = service.analyze(
+        subject="duplicate invoice refund",
+        body="Customer needs billing help.",
+        top_k=1,
+    )
+
+    assert result.retrieved_evidence[0].source_id == "TP-ticket-000002"
+    assert result.citations == ("TP-ticket-000002",)
+
+
 def test_low_classifier_confidence_abstains_from_ready_draft() -> None:
     service = orchestration_service()
 
@@ -159,8 +173,18 @@ def test_retrieval_uses_train_corpus_source_ids() -> None:
     }
 
 
+def test_model_info_reports_actual_active_retriever() -> None:
+    service = orchestration_service()
+
+    info = service.model_info()
+
+    assert info["retrieval"]["method"] == service.retriever.method_name
+    assert info["priority_classifier"]["supported"] is False
+    assert "unsupported and out of scope" in info["priority_classifier"]["reason"]
+
+
 def test_missing_artifacts_fail_readiness_without_training(tmp_path: Any) -> None:
-    with pytest.raises(Exception, match="Missing required artifacts"):
+    with pytest.raises(ArtifactLoadError, match="Missing required artifacts"):
         load_ticketpilot_service(
             queue_model_path=tmp_path / "missing-model.joblib",
             retrieval_index_path=tmp_path / "missing-retriever.joblib",

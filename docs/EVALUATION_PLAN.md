@@ -126,8 +126,10 @@ Final test metrics for the selected calibrated LinearSVC baseline:
 - Top-3 routing accuracy: 0.8988
 
 The validation-selected abstention threshold is 0.30. On the final test split it
-routes 90.49% automatically, sends 9.51% to review, and reaches 0.7009 accuracy
-on automatically routed tickets.
+produces above-threshold recommendations for 90.49% of test tickets, flags
+9.51% for additional review, and reaches 0.7009 accuracy on the
+above-threshold subset. Human review is still required before any response or
+operational next step.
 
 ## Reporting
 

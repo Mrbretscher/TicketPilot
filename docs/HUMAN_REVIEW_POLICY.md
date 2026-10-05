@@ -16,7 +16,7 @@ change permissions, or execute support actions.
 Human review is required when:
 
 - queue confidence is below the configured threshold
-- priority confidence is below the configured threshold
+- automated priority prediction is unavailable or unsupported
 - retrieved evidence is weak, contradictory, or missing
 - the draft has `insufficient_evidence`, `low_classifier_confidence`, or
   `provider_error` status
@@ -76,4 +76,5 @@ Future implementations should preserve enough metadata to explain which model ve
 Current drafting metadata includes the predicted queue, classifier confidence,
 retrieved evidence IDs, evidence similarity threshold, classifier confidence
 threshold, draft provider, and configured draft model when OpenAI generation is
-used.
+used. It does not include an automated priority prediction or priority
+confidence for recruiter-ready v1.

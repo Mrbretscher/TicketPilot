@@ -1,6 +1,6 @@
 # TicketPilot
 
-TicketPilot is a human-reviewed IT support copilot for portfolio-scale AI engineering. It receives a support ticket, predicts the appropriate support queue and priority, retrieves similar resolved tickets, drafts a grounded response with citations, and routes uncertain cases to human review.
+TicketPilot is a human-reviewed IT support copilot for portfolio-scale AI engineering. It receives a support ticket, recommends the appropriate support queue, retrieves similar resolved tickets, drafts a grounded response with citations, and sends every case through human review.
 
 TicketPilot does not autonomously perform IT actions and does not automatically send generated responses.
 
@@ -21,10 +21,11 @@ TicketPilot does not autonomously perform IT actions and does not automatically 
 - evaluation
 
 The project now includes dataset acquisition, leakage-safe preparation,
-scikit-learn queue routing, TensorFlow comparison modeling, and train-only
-similar-ticket retrieval, evidence-grounded drafting, local human review, and a
-FastAPI service, and a recruiter-facing Streamlit dashboard. Docker and vector
-databases remain future milestones.
+scikit-learn queue routing, TensorFlow comparison modeling, train-only
+similar-ticket retrieval, evidence-grounded drafting, local human review, a
+FastAPI service, and a recruiter-facing Streamlit dashboard. Automated priority
+prediction is unsupported and out of scope for recruiter-ready v1. Docker and
+vector databases remain future milestones.
 
 ## Quick Start
 
@@ -65,7 +66,9 @@ Current measured result: TF-IDF + LinearSVC was selected on validation macro F1
 and evaluated once on the final test split. Test macro F1 is `0.6829`, test
 accuracy is `0.6673`, and top-3 routing accuracy is `0.8988`. With the
 validation-selected confidence threshold `0.30`, `90.49%` of test tickets route
-automatically and `9.51%` go to human review.
+as above-threshold recommendations and `9.51%` are flagged for additional
+review. Human review is still required before any response or operational next
+step.
 
 Build and compare similar-ticket retrieval methods:
 
@@ -78,6 +81,11 @@ Current retrieval result: the 50/50 TF-IDF/semantic hybrid was selected on
 validation Recall@5 and MRR. Validation Recall@5 is `0.8792`; final test
 Recall@5 is `0.8771` and test MRR is `0.8018`. These are silver queue-match
 proxy metrics, not human-labeled relevance judgments.
+
+The deployed local analysis workflow currently uses the TF-IDF retrieval
+artifact. The validation-selected hybrid candidate is not enabled for the
+normal recruiter demo until its semantic query encoder can be loaded
+reproducibly from local artifacts.
 
 The FastAPI app entrypoint is `ticketpilot.api:app`. The service exposes
 health, model-info, classification, retrieval, full analysis, and local

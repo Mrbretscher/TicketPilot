@@ -19,3 +19,11 @@ def test_streamlit_app_exposes_main_entrypoint() -> None:
     module = importlib.import_module("ticketpilot.streamlit_app")
 
     assert callable(module.main)
+
+
+def test_streamlit_wording_does_not_claim_autonomous_routing() -> None:
+    module = importlib.import_module("ticketpilot.streamlit_app")
+    source = module.Path(module.__file__).read_text(encoding="utf-8")
+
+    assert "Auto-route" not in source
+    assert "Review recommendation ready" in source
