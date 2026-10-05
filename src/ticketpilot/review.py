@@ -236,6 +236,40 @@ def get_review_record(
     return row_to_review_record(row)
 
 
+def list_review_records(
+    *,
+    path: Path = REVIEW_DATABASE_PATH,
+    state: ReviewState | None = None,
+    limit: int = 100,
+) -> tuple[ReviewRecord, ...]:
+    """Return recent review records without exposing full ticket text."""
+    if limit <= 0:
+        raise ReviewWorkflowError("limit must be positive.")
+    initialize_review_database(path)
+    with sqlite3.connect(path) as connection:
+        connection.row_factory = sqlite3.Row
+        if state is None:
+            rows = connection.execute(
+                """
+                SELECT * FROM review_records
+                ORDER BY created_at DESC, analysis_id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        else:
+            rows = connection.execute(
+                """
+                SELECT * FROM review_records
+                WHERE state = ?
+                ORDER BY created_at DESC, analysis_id DESC
+                LIMIT ?
+                """,
+                (state, limit),
+            ).fetchall()
+    return tuple(row_to_review_record(row) for row in rows)
+
+
 def state_for_action(action: ReviewAction) -> ReviewState:
     """Map reviewer actions into persisted review states."""
     if action == "accept":

@@ -5,10 +5,10 @@
 TicketPilot currently contains local, testable components for public-data
 ingestion, leakage-safe preparation, queue classification, retrieval,
 evidence-grounded draft generation, human-review persistence, core workflow
-orchestration, and a FastAPI service.
+orchestration, a FastAPI service, and a local Streamlit dashboard.
 
-There is no hosted UI, no email sender, and no autonomous support-action
-executor.
+There is no hosted production deployment, no email sender, and no autonomous
+support-action executor.
 
 ## Planned Components
 
@@ -48,7 +48,7 @@ executor.
 
 8. Application surfaces
    - FastAPI service for local inference and review-record persistence.
-   - Future Streamlit review interface for portfolio demonstration.
+   - Streamlit support-agent console for portfolio demonstration.
    - Production deployments must add authentication and RBAC.
 
 9. Evaluation
@@ -99,6 +99,32 @@ not-ready response and inference endpoints return `503` with sanitized error
 details. Request schemas validate malformed payloads and maximum text length.
 The API does not log API keys, expose stack traces intentionally, send email,
 or execute support actions.
+
+## Streamlit Dashboard
+
+Milestone 10 adds `ticketpilot.streamlit_app`, a local recruiter-facing support
+agent console. It uses the core orchestration service directly rather than
+calling the FastAPI app, so the UI remains testable and does not require an API
+server process.
+
+Dashboard pages:
+
+- Analyze Ticket
+- Review Queue
+- Evaluation
+- System / Model Information
+- About / Limitations
+
+The Analyze Ticket page accepts `subject` and `ticket body`, then shows routing,
+similar resolved tickets, draft response, citations, warnings, abstention
+reasons, and reviewer controls. Reviewer controls write to the local SQLite
+review workflow only; they do not send responses or execute IT actions.
+
+The Evaluation page reads measured repository artifacts from ignored `reports/`
+paths. It does not hard-code fake metrics. If artifacts are missing, it shows
+empty states that explain which workflow should be run. The dashboard uses a
+deterministic local draft generator by default, so classification, retrieval,
+and demo drafting work without `OPENAI_API_KEY`.
 
 ## Local Human-Review Store
 

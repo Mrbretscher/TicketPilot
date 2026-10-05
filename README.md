@@ -23,8 +23,8 @@ TicketPilot does not autonomously perform IT actions and does not automatically 
 The project now includes dataset acquisition, leakage-safe preparation,
 scikit-learn queue routing, TensorFlow comparison modeling, and train-only
 similar-ticket retrieval, evidence-grounded drafting, local human review, and a
-FastAPI service. Streamlit, Docker, and vector databases remain future
-milestones.
+FastAPI service, and a recruiter-facing Streamlit dashboard. Docker and vector
+databases remain future milestones.
 
 ## Quick Start
 
@@ -84,6 +84,18 @@ health, model-info, classification, retrieval, full analysis, and local
 review-record endpoints. It loads ignored artifacts explicitly at startup and
 reports `not_ready` from `/health` if they are missing; it does not retrain
 models during API startup.
+
+Launch the local Streamlit dashboard:
+
+```powershell
+.\scripts\run_streamlit_app.ps1
+```
+
+The dashboard entrypoint is `ticketpilot.streamlit_app`. It provides an Analyze
+Ticket console, local review queue, artifact-backed evaluation page, system
+information page, and limitations page. Classification and retrieval remain
+demonstrable without an API key; the dashboard uses a deterministic local draft
+generator by default.
 
 ## Current State
 

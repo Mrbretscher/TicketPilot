@@ -23,24 +23,23 @@ Last updated: 2026-10-05
 | COMPLETE | RAG drafting | Provider-neutral draft generator protocol, fake test generator, optional OpenAI Responses provider, version-controlled prompts, evidence gating, structured draft schema, and prompt-injection tests | Add an app/API review surface only after preserving human approval |
 | COMPLETE | Human-review workflow | Local SQLite review records, allowed reviewer actions, state transitions, audit timestamps, edited response/reroute persistence, and safe startup tests | Add a portfolio review UI without send/execute capabilities |
 | COMPLETE | FastAPI service | Core orchestration service, explicit artifact loading, health/model-info/classify/retrieve/analyze/review endpoints, Pydantic schemas, readiness failures, and fake-provider API tests | Add UI or deployment packaging without send/execute capabilities |
-| NOT STARTED | Streamlit human-review app | None | Add after review policy and API contract |
+| COMPLETE | Streamlit dashboard | Recruiter-facing Analyze Ticket console, Review Queue, artifact-backed Evaluation page, System/Model Information, About/Limitations, sample demo tickets, and smoke tests | Add deployment packaging without send/execute capabilities |
 | NOT STARTED | Docker and CI | None | Add after core commands stabilize |
 
 ## Current Focus
 
-Core orchestration and FastAPI inference endpoints are implemented. TicketPilot
-remains decision-support software: it records reviewer decisions but cannot send
-responses or execute support actions.
+The local Streamlit dashboard is implemented on top of the core orchestration
+service. TicketPilot remains decision-support software: it records reviewer
+decisions but cannot send responses or execute support actions.
 
 ## Immediate Next Task
 
-Add a portfolio review UI or deployment packaging that uses the API and SQLite
-workflow without send/execute capabilities.
+Add deployment packaging that preserves the no-send, no-execute safety boundary.
 
 ## Known Constraints
 
 - Use Python 3.11.
-- Do not add Streamlit, Docker, or a vector database yet.
+- Do not add Docker or a vector database yet.
 - Tests must not require paid API calls.
 - Do not use private employer, university, customer, or support-ticket data.
 - Do not commit `data/raw/` downloads.
