@@ -2,43 +2,162 @@
 
 ## Model Status
 
-No model has been trained yet.
+Milestone 3 implements the first scikit-learn support-queue routing baseline.
+It is evaluated for portfolio demonstration only and is not production-ready.
 
 ## Intended Use
 
-TicketPilot models are intended to assist human support triage by predicting likely support queue, likely priority, and whether a ticket needs human review. Models are not intended to take IT actions or send responses.
+TicketPilot queue-routing models are intended to assist human support triage by
+predicting the likely destination support queue from ticket text. Models are not
+intended to take IT actions, close tickets, or send responses automatically.
 
 ## Inputs
 
-Approved pre-resolution ticket fields only. Resolved-answer text and any post-resolution fields are prohibited classifier inputs.
+Current classifier input:
+
+- `classifier_text`, constructed from `subject` + `body`
+
+Prohibited classifier inputs:
+
+- `answer`
+- `type`
+- `language`
+- `version`
+- `tag_1` through `tag_8`
+- `queue`
+- `priority`
+- resolved-answer text, resolution notes, final responses, close notes, or any
+  field unavailable before routing
 
 ## Outputs
 
-Planned outputs:
+Current queue-routing outputs:
 
 - predicted support queue
-- queue confidence
-- predicted priority
-- priority confidence
-- abstention or human-review flag
-- optional explanation metadata
+- confidence score
+- top-k queue candidates
+- abstain / human-review routing decision based on validation-selected
+  confidence threshold
 
-## Baseline Model
+## Dataset And Splits
 
-The first required model is a scikit-learn NLP baseline using TF-IDF features and simple classifiers.
+The model uses the English subset of
+`Tobi-Bueck/customer-support-tickets`, pinned and documented in
+`docs/DATA_CARD.md`. The dataset is licensed `cc-by-nc-4.0`.
 
-## Advanced Model
+Splits come from the Milestone 2 duplicate-aware prepared dataset:
 
-A TensorFlow text model may be added later only after the baseline, validation strategy, leakage checks, and evaluation reporting are in place.
+- train: 11,438 rows
+- validation: 2,450 rows
+- final test: 2,450 rows
 
-## Evaluation
+The final test split is reserved for final reporting and is not used for model
+selection, hyperparameter selection, calibration selection, or abstention
+threshold selection.
 
-Model evaluation must report more than accuracy. Planned metrics include F1, precision, recall, confusion matrices, calibration behavior, abstention coverage, and human-review routing outcomes.
+## Baselines
+
+Implemented fixed scikit-learn pipelines:
+
+- `dummy_most_frequent`
+- `tfidf_logistic_regression`
+- `tfidf_linear_svc`
+
+All text models use `TfidfVectorizer` inside a scikit-learn `Pipeline`.
+
+Selection metric: validation macro F1.
+
+Validation results:
+
+| Model | Accuracy | Macro F1 | Weighted F1 | Top-3 Accuracy |
+| --- | ---: | ---: | ---: | ---: |
+| Dummy most frequent | 0.2898 | 0.0449 | 0.1302 | 0.3616 |
+| TF-IDF + logistic regression | 0.5265 | 0.5269 | 0.5280 | 0.8139 |
+| TF-IDF + LinearSVC | 0.6645 | 0.6680 | 0.6640 | 0.8522 |
+
+Selected baseline: `tfidf_linear_svc`.
+
+Because LinearSVC does not expose calibrated probabilities, the selected final
+model uses sigmoid calibration with `CalibratedClassifierCV(cv=3)` fit without
+touching the final test set.
+
+## Final Test Results
+
+Measured on 2026-10-05:
+
+- Accuracy: 0.6673
+- Macro precision: 0.7765
+- Macro recall: 0.6294
+- Macro F1: 0.6829
+- Weighted F1: 0.6656
+- Top-3 routing accuracy: 0.8988
+- Inference latency: 0.491 ms per ticket on the local test run
+- Selected model artifact size: 13,739,197 bytes
+
+Per-class F1:
+
+| Queue | F1 | Recall | Support |
+| --- | ---: | ---: | ---: |
+| Billing and Payments | 0.8423 | 0.8159 | 239 |
+| Customer Service | 0.5818 | 0.5552 | 362 |
+| General Inquiry | 0.6415 | 0.4857 | 35 |
+| Human Resources | 0.7640 | 0.6538 | 52 |
+| IT Support | 0.5947 | 0.5000 | 292 |
+| Product Support | 0.6372 | 0.6421 | 461 |
+| Returns and Exchanges | 0.6567 | 0.5366 | 123 |
+| Sales and Pre-Sales | 0.6614 | 0.5455 | 77 |
+| Service Outages and Maintenance | 0.7716 | 0.7677 | 99 |
+| Technical Support | 0.6775 | 0.7915 | 710 |
+
+## Confidence And Abstention
+
+The abstention threshold is selected on the validation split only with a minimum
+validation coverage target of 70%.
+
+Selected threshold: 0.30.
+
+Validation at threshold 0.30:
+
+- Coverage: 83.18%
+- Sent to review: 16.82%
+- Automatically routed accuracy: 0.6865
+- Automatically routed macro F1: 0.7098
+
+Final test at threshold 0.30:
+
+- Coverage: 90.49%
+- Sent to review: 9.51%
+- Automatically routed accuracy: 0.7009
+- Automatically routed macro F1: 0.7231
+
+The threshold is not operationally approved. It is an experiment showing how
+human review could be layered over queue routing.
+
+## Artifacts
+
+Generated artifacts are ignored by Git:
+
+- `reports/queue_baseline/queue_baseline_metrics.json`
+- `reports/queue_baseline/plots/validation_model_comparison.svg`
+- `reports/queue_baseline/plots/test_confusion_matrix.svg`
+- `reports/queue_baseline/tables/test_confusion_matrix.csv`
+- `artifacts/queue_baseline/selected_queue_router.joblib`
 
 ## Limitations
 
-No performance, fairness, calibration, or operational-readiness claims have been established yet.
+- The dataset is synthetic and may not reflect a real organization's routing
+  policies or ticket-writing patterns.
+- Some queues have much smaller support than others, so macro metrics and
+  per-class recall matter more than accuracy alone.
+- General Inquiry and Human Resources have small test supports, so estimates for
+  those classes are less stable.
+- The abstention threshold is selected on validation data only and is not an
+  approved operational policy.
+- No priority classifier, retrieval model, RAG system, API, UI, monitoring, or
+  production deployment has been implemented yet.
 
 ## Safety
 
-Low-confidence predictions and weak-evidence cases must support abstention and human review. Human approval is required before any response is sent or action is taken.
+TicketPilot remains human-reviewed decision support. Low-confidence cases can be
+sent to review, and human approval is required before any response is sent or IT
+action is taken.

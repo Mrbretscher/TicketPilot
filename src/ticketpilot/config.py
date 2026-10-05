@@ -13,6 +13,12 @@ HF_DATASET_SHA256 = "f187c090e59581c2bbf3aa1377c8db4dd647464ecf2ae51bf8966e42e0e
 
 RAW_SOURCE_DATA_PATH = Path("data/raw/customer_support_tickets_source.csv")
 RAW_ENGLISH_DATA_PATH = Path("data/raw/customer_support_tickets_en.csv")
+PREPARED_DATASET_PATH = Path("reports/dataset_preparation/prepared_dataset.csv")
+SPLIT_MANIFEST_PATH = Path("reports/dataset_preparation/split_manifest.csv")
+DATASET_SUMMARY_PATH = Path("reports/dataset_preparation/dataset_summary.json")
+QUEUE_BASELINE_REPORT_DIR = Path("reports/queue_baseline")
+QUEUE_BASELINE_ARTIFACT_DIR = Path("artifacts/queue_baseline")
+QUEUE_BASELINE_REPORT_PATH = QUEUE_BASELINE_REPORT_DIR / "queue_baseline_metrics.json"
 
 EXPECTED_COLUMNS = (
     "subject",
@@ -59,3 +65,10 @@ TYPE_VALUES = ("Change", "Incident", "Problem", "Request")
 
 MIN_SOURCE_ROWS = 20_000
 MIN_ENGLISH_ROWS = 10_000
+
+SPLIT_RANDOM_SEED = 20261005
+TRAIN_SPLIT_FRACTION = 0.70
+VALIDATION_SPLIT_FRACTION = 0.15
+TEST_SPLIT_FRACTION = 0.15
+
+ABSTENTION_MIN_VALIDATION_COVERAGE = 0.70

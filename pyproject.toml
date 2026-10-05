@@ -52,3 +52,10 @@ python_version = "3.11"
 strict = true
 mypy_path = "src"
 packages = ["ticketpilot"]
+
+[[tool.mypy.overrides]]
+module = [
+    "joblib.*",
+    "sklearn.*",
+]
+ignore_missing_imports = true

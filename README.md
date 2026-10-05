@@ -41,6 +41,28 @@ The command downloads the pinned Hugging Face source CSV, filters English
 records, validates schema and quality checks, and writes ignored files under
 `data/raw/`.
 
+Prepare leakage-safe classifier splits:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\prepare_dataset.py
+```
+
+The preparation command constructs classifier text from `subject` and `body`,
+keeps duplicate text groups within one split, and writes ignored artifacts under
+`reports/dataset_preparation/`.
+
+Train and evaluate the first queue-routing baseline:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\train_queue_baseline.py
+```
+
+Current measured result: TF-IDF + LinearSVC was selected on validation macro F1
+and evaluated once on the final test split. Test macro F1 is `0.6829`, test
+accuracy is `0.6673`, and top-3 routing accuracy is `0.8988`. With the
+validation-selected confidence threshold `0.30`, `90.49%` of test tickets route
+automatically and `9.51%` go to human review.
+
 ## Current State
 
 See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) for milestone status and the next planned work.
