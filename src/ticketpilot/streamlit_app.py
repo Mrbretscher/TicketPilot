@@ -161,7 +161,9 @@ def _render_analysis_result(st: Any, result: TicketAnalysisResult) -> None:
         st.metric("Confidence", format_percent(result.confidence))
         st.metric("Predicted priority", result.predicted_priority or "Not available")
         review_label = (
-            "Human review required" if result.human_review_required else "Auto-route"
+            "Human review required"
+            if result.human_review_required
+            else "Review recommendation ready"
         )
         st.warning(review_label)
         if result.reasons:

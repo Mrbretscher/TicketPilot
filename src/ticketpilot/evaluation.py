@@ -174,7 +174,7 @@ def select_abstention_threshold(
     minimum_coverage: float,
     thresholds: list[float] | None = None,
 ) -> dict[str, Any]:
-    """Select a validation-only confidence threshold for auto-routing."""
+    """Select a validation-only confidence threshold for recommendation coverage."""
     if thresholds is None:
         thresholds = [round(value / 100, 2) for value in range(0, 101, 5)]
 
@@ -217,7 +217,7 @@ def evaluate_abstention(
     threshold: float,
     labels: list[str],
 ) -> dict[str, Any]:
-    """Evaluate automatic routing above a confidence threshold."""
+    """Evaluate above-threshold recommendations for human-reviewed routing."""
     auto_mask = confidence.astype(float) >= threshold
     auto_count = int(auto_mask.sum())
     total = int(len(y_true))

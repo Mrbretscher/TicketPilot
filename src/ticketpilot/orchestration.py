@@ -334,12 +334,14 @@ class TicketPilotService:
             "priority_classifier": {
                 "supported": False,
                 "reason": (
-                    "Milestone 9 exposes priority only when a future artifact exists."
+                    "Automated priority prediction is unsupported and out of scope "
+                    "for recruiter-ready v1. Source priority metadata may appear "
+                    "only on retrieved evidence where available."
                 ),
             },
             "retrieval": {
                 "supported": True,
-                "method": "tfidf_cosine_similarity",
+                "method": retriever_method(self.retriever),
                 "artifact_path": str(self.retrieval_index_path),
                 "corpus_size": int(len(self.retriever.corpus)),
                 "default_top_k": self.default_top_k,
@@ -455,6 +457,14 @@ def classifier_classes(classifier: Any) -> list[str]:
     if classes is None:
         return []
     return [str(item) for item in list(classes)]
+
+
+def retriever_method(retriever: TfidfTicketRetriever) -> str:
+    """Return the retrieval method exposed by the loaded retriever artifact."""
+    method_name = getattr(retriever, "method_name", None)
+    if isinstance(method_name, str) and method_name:
+        return method_name
+    return type(retriever).__name__
 
 
 def softmax(scores: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:

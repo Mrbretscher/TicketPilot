@@ -39,6 +39,11 @@ Current queue-routing outputs:
 - abstain / human-review routing decision based on validation-selected
   confidence threshold
 
+Automated priority prediction is unsupported and out of scope for
+recruiter-ready v1. Runtime API schemas retain `predicted_priority` for
+compatibility, but recruiter-demo analysis returns `null` rather than inventing
+a priority or priority confidence.
+
 ## Dataset And Splits
 
 The model uses the English subset of
@@ -234,8 +239,11 @@ TensorFlow artifacts are ignored by Git:
   approved operational policy.
 - The TensorFlow Conv1D model underperforms the sklearn text baseline and should
   not replace it without further evidence.
-- No priority classifier, retrieval model, RAG system, API, UI, monitoring, or
-  production deployment has been implemented yet.
+- No priority classifier, monitoring, production deployment, or autonomous IT
+  action workflow has been implemented.
+- Retrieval evidence may include source priority metadata from resolved tickets,
+  but that metadata is not an automated priority prediction for the incoming
+  ticket.
 
 ## Safety
 

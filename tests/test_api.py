@@ -99,6 +99,7 @@ def test_analyze_contract_uses_fake_generation_provider(tmp_path: Path) -> None:
     assert payload["retrieval_scores"][0]["source_id"] == "TP-ticket-000001"
     assert payload["citations"] == ["TP-ticket-000001"]
     assert payload["model_info"]["priority_classifier"]["supported"] is False
+    assert payload["model_info"]["retrieval"]["method"] == "tfidf_cosine_similarity"
 
 
 def test_malformed_request_is_rejected(tmp_path: Path) -> None:

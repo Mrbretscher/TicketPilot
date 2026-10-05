@@ -50,6 +50,7 @@ class TfidfTicketRetriever:
     corpus_matrix: Any
     corpus: pd.DataFrame
     retrieval_text_column: str = RETRIEVAL_TEXT_COLUMN
+    method_name: str = "tfidf_cosine_similarity"
 
 
 @dataclass(frozen=True)
