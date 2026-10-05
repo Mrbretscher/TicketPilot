@@ -22,22 +22,25 @@ Last updated: 2026-10-05
 | COMPLETE | Semantic retrieval | sentence-transformers embeddings, train-only semantic index, artifact persistence, TF-IDF/semantic/hybrid comparison, and offline fake-embedder tests | Human-label retrieval candidates before tuning hybrid weights or adding generation |
 | COMPLETE | RAG drafting | Provider-neutral draft generator protocol, fake test generator, optional OpenAI Responses provider, version-controlled prompts, evidence gating, structured draft schema, and prompt-injection tests | Add an app/API review surface only after preserving human approval |
 | COMPLETE | Human-review workflow | Local SQLite review records, allowed reviewer actions, state transitions, audit timestamps, edited response/reroute persistence, and safe startup tests | Add a portfolio review UI without send/execute capabilities |
-| NOT STARTED | FastAPI service | None | Add after inference contract is stable |
+| COMPLETE | FastAPI service | Core orchestration service, explicit artifact loading, health/model-info/classify/retrieve/analyze/review endpoints, Pydantic schemas, readiness failures, and fake-provider API tests | Add UI or deployment packaging without send/execute capabilities |
 | NOT STARTED | Streamlit human-review app | None | Add after review policy and API contract |
 | NOT STARTED | Docker and CI | None | Add after core commands stabilize |
 
 ## Current Focus
 
-Local human-review persistence is implemented. TicketPilot remains decision-support software: it records reviewer decisions but cannot send responses or execute support actions.
+Core orchestration and FastAPI inference endpoints are implemented. TicketPilot
+remains decision-support software: it records reviewer decisions but cannot send
+responses or execute support actions.
 
 ## Immediate Next Task
 
-Add a portfolio review UI that uses the SQLite workflow and cannot send responses automatically.
+Add a portfolio review UI or deployment packaging that uses the API and SQLite
+workflow without send/execute capabilities.
 
 ## Known Constraints
 
 - Use Python 3.11.
-- Do not add OpenAI, FastAPI, Streamlit, Docker, or a vector database yet.
+- Do not add Streamlit, Docker, or a vector database yet.
 - Tests must not require paid API calls.
 - Do not use private employer, university, customer, or support-ticket data.
 - Do not commit `data/raw/` downloads.

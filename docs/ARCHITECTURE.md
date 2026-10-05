@@ -4,10 +4,11 @@
 
 TicketPilot currently contains local, testable components for public-data
 ingestion, leakage-safe preparation, queue classification, retrieval,
-evidence-grounded draft generation, and human-review persistence.
+evidence-grounded draft generation, human-review persistence, core workflow
+orchestration, and a FastAPI service.
 
-There is no production API, no hosted UI, no email sender, and no autonomous
-support-action executor.
+There is no hosted UI, no email sender, and no autonomous support-action
+executor.
 
 ## Planned Components
 
@@ -46,7 +47,7 @@ support-action executor.
    - Persist local review decisions in SQLite for portfolio v1.
 
 8. Application surfaces
-   - Future FastAPI service for inference.
+   - FastAPI service for local inference and review-record persistence.
    - Future Streamlit review interface for portfolio demonstration.
    - Production deployments must add authentication and RBAC.
 
@@ -64,6 +65,40 @@ Classifier features must never include resolved-answer text, resolution notes, f
 ## Safety Boundaries
 
 TicketPilot is decision support software. It must not directly change account state, reset credentials, modify permissions, close tickets, or send replies.
+
+## Core Orchestration And API
+
+Milestone 9 adds `ticketpilot.orchestration.TicketPilotService` as the core
+application boundary. It is independent of FastAPI and runs the complete local
+workflow:
+
+1. validate request text and maximum length
+2. normalize ticket text with minimal whitespace cleanup
+3. construct classifier input from `subject + body`
+4. predict support queue with the persisted scikit-learn queue router
+5. expose priority only when a future priority artifact is available
+6. apply classifier-confidence logic
+7. retrieve similar solved tickets from the train-only retrieval index
+8. apply evidence-quality logic
+9. generate a grounded response draft only when gates pass
+10. return one structured result that always requires human review
+
+The FastAPI adapter in `ticketpilot.api` is intentionally thin. It exposes:
+
+- `GET /health`
+- `GET /model-info`
+- `POST /classify`
+- `POST /retrieve`
+- `POST /analyze`
+- `POST /reviews`
+- `GET /reviews/{id}`
+
+API startup loads persisted artifacts explicitly and never retrains models.
+If the ignored model or retrieval artifacts are missing, `/health` returns a
+not-ready response and inference endpoints return `503` with sanitized error
+details. Request schemas validate malformed payloads and maximum text length.
+The API does not log API keys, expose stack traces intentionally, send email,
+or execute support actions.
 
 ## Local Human-Review Store
 

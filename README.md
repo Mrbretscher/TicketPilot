@@ -22,8 +22,9 @@ TicketPilot does not autonomously perform IT actions and does not automatically 
 
 The project now includes dataset acquisition, leakage-safe preparation,
 scikit-learn queue routing, TensorFlow comparison modeling, and train-only
-similar-ticket retrieval. OpenAI integration, FastAPI, Streamlit, Docker, and
-vector databases remain future milestones.
+similar-ticket retrieval, evidence-grounded drafting, local human review, and a
+FastAPI service. Streamlit, Docker, and vector databases remain future
+milestones.
 
 ## Quick Start
 
@@ -77,6 +78,12 @@ Current retrieval result: the 50/50 TF-IDF/semantic hybrid was selected on
 validation Recall@5 and MRR. Validation Recall@5 is `0.8792`; final test
 Recall@5 is `0.8771` and test MRR is `0.8018`. These are silver queue-match
 proxy metrics, not human-labeled relevance judgments.
+
+The FastAPI app entrypoint is `ticketpilot.api:app`. The service exposes
+health, model-info, classification, retrieval, full analysis, and local
+review-record endpoints. It loads ignored artifacts explicitly at startup and
+reports `not_ready` from `/health` if they are missing; it does not retrain
+models during API startup.
 
 ## Current State
 

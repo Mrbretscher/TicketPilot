@@ -9,6 +9,7 @@ description = "Human-reviewed IT support copilot portfolio project."
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
 dependencies = [
+    "fastapi",
     "numpy",
     "pandas",
     "scikit-learn",
@@ -24,6 +25,7 @@ dev = [
     "mypy",
     "pandas-stubs",
     "jupyterlab",
+    "httpx",
 ]
 
 [tool.setuptools.packages.find]

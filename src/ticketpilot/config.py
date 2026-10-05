@@ -19,6 +19,7 @@ DATASET_SUMMARY_PATH = Path("reports/dataset_preparation/dataset_summary.json")
 QUEUE_BASELINE_REPORT_DIR = Path("reports/queue_baseline")
 QUEUE_BASELINE_ARTIFACT_DIR = Path("artifacts/queue_baseline")
 QUEUE_BASELINE_REPORT_PATH = QUEUE_BASELINE_REPORT_DIR / "queue_baseline_metrics.json"
+QUEUE_ROUTER_MODEL_PATH = QUEUE_BASELINE_ARTIFACT_DIR / "selected_queue_router.joblib"
 TENSORFLOW_REPORT_DIR = Path("reports/tensorflow_queue")
 TENSORFLOW_ARTIFACT_DIR = Path("artifacts/tensorflow_queue")
 TENSORFLOW_REPORT_PATH = TENSORFLOW_REPORT_DIR / "tensorflow_queue_metrics.json"
@@ -110,6 +111,8 @@ DRAFT_MIN_CLASSIFIER_CONFIDENCE = 0.30
 DRAFT_MAX_TICKET_CHARS = 4_000
 DRAFT_MAX_EVIDENCE_FIELD_CHARS = 1_500
 REVIEW_DATABASE_PATH = Path("artifacts/review/reviews.sqlite")
+API_MAX_TICKET_TEXT_CHARS = 6_000
+API_DEFAULT_RETRIEVAL_TOP_K = 5
 
 TENSORFLOW_RANDOM_SEED = 20261005
 TENSORFLOW_MAX_TOKENS = 20_000
