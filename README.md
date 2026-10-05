@@ -20,7 +20,10 @@ TicketPilot does not autonomously perform IT actions and does not automatically 
 - reproducibility
 - evaluation
 
-The initial scaffold intentionally includes only the Python package, documentation, tests, and development tooling. TensorFlow, sentence-transformers, OpenAI, FastAPI, Streamlit, Docker, and vector databases are future milestones.
+The project now includes dataset acquisition, leakage-safe preparation,
+scikit-learn queue routing, TensorFlow comparison modeling, and train-only
+similar-ticket retrieval. OpenAI integration, FastAPI, Streamlit, Docker, and
+vector databases remain future milestones.
 
 ## Quick Start
 
@@ -62,6 +65,18 @@ and evaluated once on the final test split. Test macro F1 is `0.6829`, test
 accuracy is `0.6673`, and top-3 routing accuracy is `0.8988`. With the
 validation-selected confidence threshold `0.30`, `90.49%` of test tickets route
 automatically and `9.51%` go to human review.
+
+Build and compare similar-ticket retrieval methods:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\build_retrieval_baseline.py
+.\.venv\Scripts\python.exe scripts\build_semantic_retrieval.py
+```
+
+Current retrieval result: the 50/50 TF-IDF/semantic hybrid was selected on
+validation Recall@5 and MRR. Validation Recall@5 is `0.8792`; final test
+Recall@5 is `0.8771` and test MRR is `0.8018`. These are silver queue-match
+proxy metrics, not human-labeled relevance judgments.
 
 ## Current State
 

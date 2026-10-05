@@ -31,6 +31,26 @@ def evaluate_queue_classifier(
     y_pred = pd.Series(estimator.predict(x), index=y_true.index)
     elapsed_seconds = perf_counter() - start
     scores = class_score_matrix(estimator, x, labels=labels)
+    return evaluate_multiclass_predictions(
+        y_true,
+        y_pred,
+        scores,
+        labels=labels,
+        elapsed_seconds=elapsed_seconds,
+        top_k=top_k,
+    )
+
+
+def evaluate_multiclass_predictions(
+    y_true: pd.Series,
+    y_pred: pd.Series,
+    scores: np.ndarray,
+    *,
+    labels: list[str],
+    elapsed_seconds: float,
+    top_k: int = 3,
+) -> dict[str, Any]:
+    """Evaluate multiclass predictions and aligned per-class scores."""
 
     report = classification_report(
         y_true,
@@ -73,9 +93,11 @@ def evaluate_queue_classifier(
         },
         "top_k_accuracy": top_k_accuracy(y_true, scores, labels=labels, k=top_k),
         "inference_latency": {
-            "rows": int(len(x)),
+            "rows": int(len(y_true)),
             "total_seconds": float(elapsed_seconds),
-            "milliseconds_per_ticket": float((elapsed_seconds / max(len(x), 1)) * 1000),
+            "milliseconds_per_ticket": float(
+                (elapsed_seconds / max(len(y_true), 1)) * 1000
+            ),
         },
     }
 

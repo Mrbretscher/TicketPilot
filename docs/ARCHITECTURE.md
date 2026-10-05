@@ -2,7 +2,12 @@
 
 ## Current Architecture
 
-The repository currently contains the project scaffold, documentation, package shell, and verification scripts. No modeling, retrieval, API, UI, or generation code has been implemented yet.
+TicketPilot currently contains local, testable components for public-data
+ingestion, leakage-safe preparation, queue classification, retrieval,
+evidence-grounded draft generation, and human-review persistence.
+
+There is no production API, no hosted UI, no email sender, and no autonomous
+support-action executor.
 
 ## Planned Components
 
@@ -38,10 +43,12 @@ The repository currently contains the project scaffold, documentation, package s
    - Flag low-confidence predictions.
    - Flag weak-evidence retrieval results.
    - Require human review before any response is sent or action is taken.
+   - Persist local review decisions in SQLite for portfolio v1.
 
 8. Application surfaces
    - Future FastAPI service for inference.
    - Future Streamlit review interface for portfolio demonstration.
+   - Production deployments must add authentication and RBAC.
 
 9. Evaluation
    - Classification metrics.
@@ -57,3 +64,30 @@ Classifier features must never include resolved-answer text, resolution notes, f
 ## Safety Boundaries
 
 TicketPilot is decision support software. It must not directly change account state, reset credentials, modify permissions, close tickets, or send replies.
+
+## Local Human-Review Store
+
+Milestone 8 uses SQLite through the Python standard library. The default local
+database path is `artifacts/review/reviews.sqlite`, which is ignored by Git.
+
+Each review record stores:
+
+- unique analysis ID
+- created/updated/reviewed timestamps
+- ticket text hash
+- predicted queue and queue confidence
+- optional predicted priority
+- retrieved evidence IDs
+- draft response
+- model/provider metadata
+- reviewer action
+- edited response
+- reviewer-selected final queue
+- optional review note
+
+Allowed reviewer actions are `accept`, `edit`, `reject`, `reroute`, and
+`mark_insufficient_evidence`. Persisted states are `pending`, `approved`,
+`edited`, and `rejected`.
+
+The review layer records human decisions only. It never sends email, changes a
+ticket, performs account operations, or invokes support tools.

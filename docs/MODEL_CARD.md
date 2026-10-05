@@ -143,6 +143,85 @@ Generated artifacts are ignored by Git:
 - `reports/queue_baseline/tables/test_confusion_matrix.csv`
 - `artifacts/queue_baseline/selected_queue_router.joblib`
 
+## TensorFlow Text Classifier
+
+Milestone 4 adds a TensorFlow/Keras queue classifier for comparison, not as the
+selected deployment model.
+
+Architecture:
+
+- `TextVectorization`, adapted only on training text
+- trainable embedding layer, dimension 64
+- `SpatialDropout1D`
+- `Conv1D` with 96 filters
+- `GlobalMaxPooling1D`
+- dropout
+- softmax output over support queues
+- inverse-frequency class weights
+- early stopping on validation loss
+
+This is intentionally lightweight. No transformer model is used.
+
+TensorFlow training details:
+
+- Random seed: 20261005
+- Epochs requested: 8
+- Epochs run: 8
+- Batch size: 128
+- Training time: 60.45 seconds on local CPU
+- TensorFlow artifact size: 15,903,276 bytes
+
+TensorFlow final test results:
+
+- Accuracy: 0.3808
+- Macro precision: 0.3625
+- Macro recall: 0.4697
+- Macro F1: 0.3795
+- Weighted F1: 0.3838
+- Top-3 routing accuracy: 0.7184
+- Inference latency: 0.390 ms per ticket
+- Negative log loss: 1.7136
+- Expected calibration error: 0.0681
+
+Comparison against the strongest sklearn baseline:
+
+| Metric | sklearn LinearSVC | TensorFlow Conv1D | TensorFlow delta |
+| --- | ---: | ---: | ---: |
+| Macro F1 | 0.6829 | 0.3795 | -0.3034 |
+| Weighted F1 | 0.6656 | 0.3838 | -0.2818 |
+| Top-3 accuracy | 0.8988 | 0.7184 | -0.1804 |
+| Inference ms/ticket | 0.4910 | 0.3900 | -0.1010 |
+| Artifact size bytes | 13,739,197 | 15,903,276 | +2,164,079 |
+
+Per-class recall comparison:
+
+| Queue | sklearn Recall | TensorFlow Recall |
+| --- | ---: | ---: |
+| Billing and Payments | 0.8159 | 0.6736 |
+| Customer Service | 0.5552 | 0.2376 |
+| General Inquiry | 0.4857 | 0.4857 |
+| Human Resources | 0.6538 | 0.5000 |
+| IT Support | 0.5000 | 0.2466 |
+| Product Support | 0.6421 | 0.2408 |
+| Returns and Exchanges | 0.5366 | 0.5772 |
+| Sales and Pre-Sales | 0.5455 | 0.6104 |
+| Service Outages and Maintenance | 0.7677 | 0.7475 |
+| Technical Support | 0.7915 | 0.3775 |
+
+Deployment decision: keep `tfidf_linear_svc` as the selected deployment
+candidate. TensorFlow does not beat the sklearn baseline on macro F1, weighted
+F1, or top-3 accuracy in this run. Its slightly lower inference latency does not
+offset the much weaker routing quality.
+
+TensorFlow artifacts are ignored by Git:
+
+- `reports/tensorflow_queue/tensorflow_queue_metrics.json`
+- `reports/tensorflow_queue/training_history.json`
+- `reports/tensorflow_queue/training_history.csv`
+- `reports/tensorflow_queue/plots/tensorflow_test_confusion_matrix.svg`
+- `reports/tensorflow_queue/tables/tensorflow_test_confusion_matrix.csv`
+- `artifacts/tensorflow_queue/tensorflow_queue_classifier.keras`
+
 ## Limitations
 
 - The dataset is synthetic and may not reflect a real organization's routing
@@ -153,6 +232,8 @@ Generated artifacts are ignored by Git:
   those classes are less stable.
 - The abstention threshold is selected on validation data only and is not an
   approved operational policy.
+- The TensorFlow Conv1D model underperforms the sklearn text baseline and should
+  not replace it without further evidence.
 - No priority classifier, retrieval model, RAG system, API, UI, monitoring, or
   production deployment has been implemented yet.
 

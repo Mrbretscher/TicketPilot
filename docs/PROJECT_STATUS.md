@@ -17,25 +17,27 @@ Last updated: 2026-10-05
 | COMPLETE | Leakage-safe dataset preparation | Subject+body classifier text, grouped deterministic splits, preparation summaries, split manifest, and split-safety tests | Build scikit-learn baseline without using the final test set for selection |
 | COMPLETE | scikit-learn queue-routing baseline | Dummy, TF-IDF logistic regression, TF-IDF LinearSVC, validation-selected calibrated LinearSVC, test metrics, reports, plots, and model artifact | Add priority baseline or improve queue error analysis |
 | COMPLETE | Confidence and abstention experiment | Validation-selected threshold 0.30, final-test coverage/review metrics, calibrated confidence scores | Define operational review policy only after broader validation |
-| NOT STARTED | Retrieval | None | Choose retrieval approach after approved data exists |
-| NOT STARTED | RAG drafting | None | Add version-controlled prompts and cited draft contract |
-| NOT STARTED | TensorFlow text model | None | Add only after baseline evaluation |
+| COMPLETE | TensorFlow text model | TextVectorization + embedding + Conv1D model, class weighting, early stopping, training history, test metrics, calibration diagnostics, and sklearn comparison | Keep sklearn LinearSVC as deployment candidate; investigate priority classification or error analysis |
+| COMPLETE | Retrieval | Train-only resolved-ticket TF-IDF index, top-k cosine retrieval, stable source IDs, silver queue-match metrics, manual relevance template, and leakage tests | Label a small gold retrieval set before adding RAG drafting |
+| COMPLETE | Semantic retrieval | sentence-transformers embeddings, train-only semantic index, artifact persistence, TF-IDF/semantic/hybrid comparison, and offline fake-embedder tests | Human-label retrieval candidates before tuning hybrid weights or adding generation |
+| COMPLETE | RAG drafting | Provider-neutral draft generator protocol, fake test generator, optional OpenAI Responses provider, version-controlled prompts, evidence gating, structured draft schema, and prompt-injection tests | Add an app/API review surface only after preserving human approval |
+| COMPLETE | Human-review workflow | Local SQLite review records, allowed reviewer actions, state transitions, audit timestamps, edited response/reroute persistence, and safe startup tests | Add a portfolio review UI without send/execute capabilities |
 | NOT STARTED | FastAPI service | None | Add after inference contract is stable |
 | NOT STARTED | Streamlit human-review app | None | Add after review policy and API contract |
 | NOT STARTED | Docker and CI | None | Add after core commands stabilize |
 
 ## Current Focus
 
-Queue-routing baseline complete; next focus is either priority classification or deeper queue error analysis.
+Local human-review persistence is implemented. TicketPilot remains decision-support software: it records reviewer decisions but cannot send responses or execute support actions.
 
 ## Immediate Next Task
 
-Extend baseline coverage to priority classification or analyze queue-routing errors before adding retrieval.
+Add a portfolio review UI that uses the SQLite workflow and cannot send responses automatically.
 
 ## Known Constraints
 
 - Use Python 3.11.
-- Do not add TensorFlow, sentence-transformers, OpenAI, FastAPI, Streamlit, Docker, or a vector database yet.
+- Do not add OpenAI, FastAPI, Streamlit, Docker, or a vector database yet.
 - Tests must not require paid API calls.
 - Do not use private employer, university, customer, or support-ticket data.
 - Do not commit `data/raw/` downloads.

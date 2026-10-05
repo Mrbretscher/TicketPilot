@@ -12,6 +12,8 @@ dependencies = [
     "numpy",
     "pandas",
     "scikit-learn",
+    "sentence-transformers>=3,<4",
+    "tensorflow>=2.16,<3",
 ]
 
 [project.optional-dependencies]
@@ -56,6 +58,9 @@ packages = ["ticketpilot"]
 [[tool.mypy.overrides]]
 module = [
     "joblib.*",
+    "keras.*",
+    "sentence_transformers.*",
     "sklearn.*",
+    "tensorflow.*",
 ]
 ignore_missing_imports = true
