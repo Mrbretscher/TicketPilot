@@ -10,7 +10,28 @@ orchestration, a FastAPI service, and a local Streamlit dashboard.
 There is no hosted production deployment, no email sender, and no autonomous
 support-action executor.
 
-## Planned Components
+## Architecture Diagram
+
+```mermaid
+flowchart TB
+    dataset[Public Hugging Face support-ticket CSV] --> acquisition[Dataset acquisition and schema validation]
+    acquisition --> preparation[Leakage-safe preparation subject + body only]
+    preparation --> sklearn[scikit-learn TF-IDF queue router]
+    preparation --> tensorflow[TensorFlow Conv1D comparison model]
+    preparation --> retrieval[Train-only TF-IDF retrieval index]
+    preparation --> semantic[Offline semantic and hybrid retrieval experiments]
+    sklearn --> service[TicketPilotService orchestration]
+    retrieval --> service
+    service --> draft[Evidence-gated draft generation]
+    draft --> review[Human review workflow]
+    review --> sqlite[(Local SQLite review store)]
+    service --> fastapi[FastAPI adapter]
+    service --> streamlit[Streamlit dashboard]
+    fastapi --> reviewer[Human reviewer]
+    streamlit --> reviewer
+```
+
+## Implemented Components
 
 1. Data ingestion and validation
    - Load public or synthetic support-ticket data.
@@ -57,6 +78,13 @@ support-action executor.
    - Retrieval metrics.
    - RAG citation and groundedness checks.
    - Human-review policy tests.
+
+10. Packaging and CI
+   - Dockerfile, `.dockerignore`, and Docker Compose configuration for a local
+     recruiter/demo workflow.
+   - GitHub Actions workflow for Python checks and Docker build smoke tests.
+   - Docker runtime verification remains pending in the current local
+     environment because Docker is unavailable.
 
 ## Data Boundaries
 
@@ -106,6 +134,27 @@ require a sentence-transformers encoder that is not preserved as a local
 project artifact. The deployed service reports the actual active retriever in
 `/model-info` and does not silently claim hybrid retrieval while serving TF-IDF.
 
+## Training And Evaluation Flow
+
+Training and evaluation are script-driven and intentionally separate from
+application startup:
+
+1. `scripts/fetch_data.ps1` downloads and validates the pinned public dataset.
+2. `scripts/prepare_dataset.py` builds duplicate-aware splits and classifier
+   text from `subject + body`.
+3. `scripts/train_queue_baseline.py` trains and evaluates scikit-learn queue
+   classifiers, writes reports, and saves the selected queue-router artifact.
+4. `scripts/train_tensorflow_queue.py` trains the TensorFlow comparison model.
+5. `scripts/build_retrieval_baseline.py` builds the deployed TF-IDF retrieval
+   artifact.
+6. `scripts/build_semantic_retrieval.py` evaluates semantic and hybrid
+   retrieval candidates offline.
+7. `scripts/score_gold_retrieval.py` scores manually labeled retrieval
+   candidates and selects the evidence threshold used for drafting gates.
+
+No full training, dataset acquisition, or semantic encoder download occurs in
+ordinary API or dashboard startup.
+
 ## Streamlit Dashboard
 
 Milestone 10 adds `ticketpilot.streamlit_app`, a local recruiter-facing support
@@ -131,6 +180,52 @@ paths. It does not hard-code fake metrics. If artifacts are missing, it shows
 empty states that explain which workflow should be run. The dashboard uses a
 deterministic local draft generator by default, so classification, retrieval,
 and demo drafting work without `OPENAI_API_KEY`.
+
+## External Services
+
+The default local runtime has no required external service. The optional OpenAI
+Responses draft provider reads `OPENAI_API_KEY` only when that provider is
+explicitly invoked. Tests and the default dashboard path use deterministic local
+fakes and do not perform paid API calls.
+
+The public Hugging Face dataset is needed only for the data-acquisition command,
+not for application startup. The deployed v1 retriever is local TF-IDF and does
+not require Hugging Face or sentence-transformers network access at runtime.
+
+## Failure Behavior
+
+- Missing classifier or retrieval artifacts cause `/health` to report
+  `not_ready`, and inference endpoints return `503` with sanitized errors.
+- Low classifier confidence causes a structured abstention instead of a ready
+  draft.
+- Weak retrieved evidence causes a structured abstention instead of a ready
+  draft.
+- Missing optional OpenAI credentials affect only explicit OpenAI drafting and
+  do not block classification or retrieval.
+- Review records are local SQLite records only; no outbound ticket action is
+  taken.
+
+## Docker Packaging
+
+Phase 12 adds portfolio-grade Docker packaging for local recruiter demos. The
+Docker image installs only serving/runtime dependencies for the FastAPI and
+Streamlit surfaces. TensorFlow training, sentence-transformers semantic
+retrieval, dataset acquisition, and model-training utilities remain outside the
+default runtime install.
+
+The image does not copy raw datasets, reports, SQLite review databases, or
+generated model artifacts. Docker Compose starts separate `api` and `streamlit`
+services from the same image and bind-mounts the ignored local artifacts needed
+for deployed v1:
+
+- `artifacts/queue_baseline/selected_queue_router.joblib`
+- `artifacts/retrieval/tfidf_ticket_retriever.joblib`
+- `reports/queue_baseline/queue_baseline_metrics.json`
+
+If required classifier or TF-IDF retrieval artifacts are missing, `/health`
+reports `not_ready` and inference endpoints fail closed with `503`. Optional
+LLM credentials are not part of readiness for queue classification or TF-IDF
+retrieval.
 
 ## Local Human-Review Store
 

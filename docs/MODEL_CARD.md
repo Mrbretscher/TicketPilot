@@ -2,14 +2,30 @@
 
 ## Model Status
 
-Milestone 3 implements the first scikit-learn support-queue routing baseline.
-It is evaluated for portfolio demonstration only and is not production-ready.
+TicketPilot's deployed v1 model capability is support-queue routing with a
+scikit-learn TF-IDF + calibrated LinearSVC pipeline. It is evaluated for
+portfolio demonstration only and is not production-ready.
+
+Automated priority prediction is not implemented for recruiter-ready v1.
+Priority metadata can appear on retrieved historical evidence, but TicketPilot
+does not predict priority for an incoming ticket.
 
 ## Intended Use
 
 TicketPilot queue-routing models are intended to assist human support triage by
 predicting the likely destination support queue from ticket text. Models are not
 intended to take IT actions, close tickets, or send responses automatically.
+
+## Unsuitable Use
+
+Do not use this prototype for:
+
+- production ticket routing without human review
+- automated account, permission, billing, refund, or security actions
+- sending generated responses directly to requesters
+- evaluating real employees, customers, or support agents
+- commercial use of the included dataset without resolving the dataset license
+  constraints
 
 ## Inputs
 
@@ -43,6 +59,14 @@ Automated priority prediction is unsupported and out of scope for
 recruiter-ready v1. Runtime API schemas retain `predicted_priority` for
 compatibility, but recruiter-demo analysis returns `null` rather than inventing
 a priority or priority confidence.
+
+Runtime `/model-info` reports:
+
+- queue classifier supported: `true`
+- priority classifier supported: `false`
+- deployed retriever: `tfidf_cosine_similarity`
+- drafting provider: local fake generator by default unless another provider is
+  explicitly supplied
 
 ## Dataset And Splits
 
@@ -165,6 +189,17 @@ Final test at threshold 0.30:
 
 The threshold is not operationally approved. It is an experiment showing how
 human review could be layered over queue routing.
+
+## Retrieval And Drafting Dependencies
+
+The deployed v1 retrieval artifact is a local TF-IDF index over train-only
+resolved tickets. Semantic and hybrid retrieval are documented offline
+experiments and are not used by the local API/dashboard workflow.
+
+Draft generation is evidence-gated. A response draft is returned only when both
+classifier confidence and retrieved evidence score pass their configured
+thresholds. Otherwise TicketPilot returns a structured abstention for human
+review.
 
 ## Rare Queue Analysis
 
@@ -305,3 +340,10 @@ TensorFlow artifacts are ignored by Git:
 TicketPilot remains human-reviewed decision support. Low-confidence cases can be
 sent to review, and human approval is required before any response is sent or IT
 action is taken.
+
+## Release Readiness
+
+This model card supports recruiter-facing portfolio release, not production
+release. Before production use, the project would need authentication,
+authorization, monitoring, broader human-labeled evaluation, policy review,
+operational runbooks, and deployment verification.

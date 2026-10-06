@@ -39,8 +39,12 @@ vector_indexes/
 *.parquet
 *.pkl
 *.joblib
+*.keras
+*.h5
+*.npz
 
 # Logs and local files
 *.log
+screenshots/
 .DS_Store
 Thumbs.db
