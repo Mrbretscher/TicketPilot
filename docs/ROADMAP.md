@@ -52,7 +52,11 @@
 
 ## Milestone 8: Reproducibility And Deployment
 
-- Add Docker.
+- Add Docker packaging.
 - Add CI.
 - Add reproducible training and evaluation commands.
 - Document limitations and operational risks.
+
+Current status: Docker and CI configuration exists. Docker build and Compose
+runtime checks still need to be verified on a Docker-enabled machine before the
+deployment-packaging milestone is marked complete.

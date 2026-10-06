@@ -26,15 +26,16 @@ Last updated: 2026-10-06
 | COMPLETE | Human-review workflow | Local SQLite review records, allowed reviewer actions, state transitions, audit timestamps, edited response/reroute persistence, and safe startup tests | Add a portfolio review UI without send/execute capabilities |
 | COMPLETE | FastAPI service | Core orchestration service, explicit artifact loading, health/model-info/classify/retrieve/analyze/review endpoints, Pydantic schemas, readiness failures, and fake-provider API tests. The active retriever is reported truthfully as TF-IDF; the validation-selected hybrid candidate is not deployed until its semantic query encoder is locally reproducible. | Add deployment packaging without send/execute capabilities |
 | COMPLETE | Streamlit dashboard | Recruiter-facing Analyze Ticket console, Review Queue, artifact-backed Evaluation page, System/Model Information, About/Limitations, sample demo tickets, and smoke tests | Add deployment packaging without send/execute capabilities |
-| NOT STARTED | Docker and CI | None | Add after core commands stabilize |
+| IN PROGRESS | Docker and CI | Dockerfile, Docker Compose, .dockerignore, dependency split, GitHub Actions workflow, packaging tests, local FastAPI health/model-info/analyze checks, and local Streamlit health check. Docker host verification is still pending because Docker is unavailable in the current environment. | Run Docker build and Compose health/analyze checks on a machine with Docker installed before marking complete |
+| IN PROGRESS | Recruiter-facing release documentation | README rewrite, architecture diagram, updated data/model/security docs, demo script, recruiter summary, resume bullets, LinkedIn description, and a committed dashboard placeholder image. Live demo, video, and real screenshot links remain unfilled by design for repo-only recruiter review. | Add verified screenshot/demo links after Docker runtime verification |
 
 ## Current Focus
 
-The local Streamlit dashboard is implemented on top of the core orchestration
-service. TicketPilot remains decision-support software: it records reviewer
-decisions but cannot send responses, route autonomously, or execute support
-actions. Queue routing is the implemented classifier capability for
-recruiter-ready v1; automated priority prediction is unsupported.
+The local Streamlit dashboard and FastAPI API are implemented on top of the
+core orchestration service. TicketPilot remains decision-support software: it
+records reviewer decisions but cannot send responses, route autonomously, or
+execute support actions. Queue routing is the implemented classifier capability
+for recruiter-ready v1; automated priority prediction is unsupported.
 
 The human-labeled gold retrieval workflow now reports GOLD VALIDATION and GOLD
 TEST separately. GOLD VALIDATION selected an evidence score threshold of `0.39`
@@ -54,12 +55,18 @@ test inspection is documented as a methodology limitation.
 
 ## Immediate Next Task
 
-Add deployment packaging that preserves the no-send, no-execute safety boundary.
+Before publishing a hosted recruiter demo, run Docker build and Docker Compose
+verification on a machine with Docker installed, replace the placeholder image
+with a real dashboard screenshot, add demo/video links, and mark the packaging
+and recruiter-documentation milestones complete if those checks pass.
 
 ## Known Constraints
 
 - Use Python 3.11.
-- Do not add Docker or a vector database yet.
+- Docker packaging is configured, but Docker runtime verification is pending.
+- Current release posture is repo-only recruiter review until Docker runtime
+  verification and demo assets are complete.
+- Do not add a vector database yet.
 - Tests must not require paid API calls.
 - Do not use private employer, university, customer, or support-ticket data.
 - Do not commit `data/raw/` downloads.
