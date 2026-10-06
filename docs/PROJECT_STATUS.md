@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-10-05
+Last updated: 2026-10-06
 
 ## Status Legend
 
@@ -20,9 +20,9 @@ Last updated: 2026-10-05
 | COMPLETE | Confidence and abstention experiment | Validation-selected threshold 0.30, final-test coverage/review metrics, calibrated confidence scores | Define operational review policy only after broader validation |
 | COMPLETE | Classifier evaluation methodology remediation | sklearn calibration Brier/ECE/reliability plots, confidence-threshold curves, per-queue rare-class report, validation-sourced sklearn-vs-TensorFlow deployment decision, and regression tests | Treat final test as reporting-only and document historical test-inspection limitations |
 | COMPLETE | TensorFlow text model | TextVectorization + embedding + Conv1D model, class weighting, early stopping, training history, test metrics, calibration diagnostics, and sklearn comparison | Keep sklearn LinearSVC as deployment candidate; investigate queue error analysis |
-| COMPLETE | Retrieval | Train-only resolved-ticket TF-IDF index, top-k cosine retrieval, stable source IDs, silver queue-match metrics, manual relevance template, and leakage tests | Label a small gold retrieval set before adding RAG drafting |
+| COMPLETE | Retrieval | Train-only resolved-ticket TF-IDF index, top-k cosine retrieval, stable source IDs, silver queue-match metrics, human-labeled 20-query validation/test gold retrieval sets, and leakage tests | Use gold labels for validation-only evidence thresholding; keep final test reporting-only |
 | COMPLETE | Semantic retrieval | sentence-transformers embeddings, train-only semantic index, artifact persistence, TF-IDF/semantic/hybrid comparison, and offline fake-embedder tests | Human-label retrieval candidates before tuning hybrid weights or adding generation |
-| COMPLETE | RAG drafting | Provider-neutral draft generator protocol, fake test generator, optional OpenAI Responses provider, version-controlled prompts, evidence gating, structured draft schema, and prompt-injection tests | Add an app/API review surface only after preserving human approval |
+| COMPLETE | RAG drafting | Provider-neutral draft generator protocol, fake test generator, optional OpenAI Responses provider, version-controlled prompts, validation-supported evidence threshold `0.39`, structured draft schema, and prompt-injection tests | Keep abstention conservative and revisit the evidence threshold only with additional validation labels |
 | COMPLETE | Human-review workflow | Local SQLite review records, allowed reviewer actions, state transitions, audit timestamps, edited response/reroute persistence, and safe startup tests | Add a portfolio review UI without send/execute capabilities |
 | COMPLETE | FastAPI service | Core orchestration service, explicit artifact loading, health/model-info/classify/retrieve/analyze/review endpoints, Pydantic schemas, readiness failures, and fake-provider API tests. The active retriever is reported truthfully as TF-IDF; the validation-selected hybrid candidate is not deployed until its semantic query encoder is locally reproducible. | Add deployment packaging without send/execute capabilities |
 | COMPLETE | Streamlit dashboard | Recruiter-facing Analyze Ticket console, Review Queue, artifact-backed Evaluation page, System/Model Information, About/Limitations, sample demo tickets, and smoke tests | Add deployment packaging without send/execute capabilities |
@@ -35,6 +35,11 @@ service. TicketPilot remains decision-support software: it records reviewer
 decisions but cannot send responses, route autonomously, or execute support
 actions. Queue routing is the implemented classifier capability for
 recruiter-ready v1; automated priority prediction is unsupported.
+
+The human-labeled gold retrieval workflow now reports GOLD VALIDATION and GOLD
+TEST separately. GOLD VALIDATION selected an evidence score threshold of `0.39`
+for RAG drafting gates under a conservative precision rule. GOLD TEST was used
+only once afterward for reporting behavior at that fixed threshold.
 
 The 2026-10-05 near-duplicate leakage audit found no material cross-split
 leakage requiring a split rebuild. The existing train/validation/final-test

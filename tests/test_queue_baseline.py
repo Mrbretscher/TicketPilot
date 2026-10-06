@@ -37,6 +37,8 @@ def queue_training_frame() -> pd.DataFrame:
                 "ticket_row_id": f"ticket-{index:06d}",
                 "ticket_text_group_id": f"group-{index:06d}",
                 SPLIT_COLUMN: split,
+                "subject": text,
+                "body": f"Support request body {index}",
                 CLASSIFIER_TEXT_COLUMN: text,
                 QUEUE_LABEL_COLUMN: queue,
                 "priority": "medium",
@@ -66,6 +68,8 @@ def complete_queue_training_frame() -> pd.DataFrame:
                 "ticket_row_id": f"ticket-{index:06d}",
                 "ticket_text_group_id": f"group-{index:06d}",
                 SPLIT_COLUMN: split_by_index[index],
+                "subject": text,
+                "body": f"Support request body {index}",
                 CLASSIFIER_TEXT_COLUMN: text,
                 QUEUE_LABEL_COLUMN: queue,
                 "priority": "medium",
@@ -191,6 +195,24 @@ def test_queue_report_marks_test_threshold_results_as_reporting_only(
     assert test_result["threshold_source"] == "validation_split"
     assert test_result["reporting_only"] is True
     assert report["confidence_analysis"]["test"]["reporting_only"] is True
+
+
+def test_queue_report_includes_suspicious_label_mentions(tmp_path: Any) -> None:
+    frame = complete_queue_training_frame()
+    frame.loc[0, "subject"] = "Technical Support routing request"
+    frame.loc[1, "body"] = "This medium priority billing issue needs review."
+
+    report = train_and_evaluate_queue_baselines(
+        frame,
+        artifact_dir=tmp_path / "artifacts",
+        report_dir=tmp_path / "reports",
+    )
+    label_report = report["data_quality"]["suspicious_label_mentions"]
+
+    assert label_report["queue_label_mentions"]["ticket_count"] == 1
+    assert label_report["priority_label_mentions"]["ticket_count"] == 1
+    assert label_report["any_label_mentions"]["ticket_count"] == 2
+    assert label_report["safe_examples"]
 
 
 def test_answer_text_cannot_enter_classifier_features() -> None:

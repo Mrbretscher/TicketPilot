@@ -184,9 +184,26 @@ Implemented validation covers:
   classifier text.
 - Classifier feature-column policy, including explicit rejection of `answer`.
 
-Suspicious label-mention counts are diagnostics rather than automatic failures
-because user-authored ticket text may naturally mention urgency or routing
-terms. These counts must be reviewed before any model results are reported.
+The regenerated dataset summary also surfaces literal label-mention diagnostics
+from `validation.py`. The method flags a ticket when its own queue or priority
+label appears verbatim in its public `subject` or `body`; it does not inspect
+the resolved answer field and does not remove records. In the current prepared
+English dataset, 862 of 16,338 tickets contain at least one such mention
+(5.28%). Queue-label mentions affect 97 tickets (0.59%), primarily Technical
+Support (48), Returns and Exchanges (16), Product Support (9), Customer Service
+(8), Billing and Payments (7), Human Resources (3), IT Support (3), and Service
+Outages and Maintenance (3). Priority-label mentions affect 777 tickets
+(4.76%), mostly `high` (347) and `low` (427), with 3 `medium` mentions.
+
+These counts are diagnostics rather than automatic failures because
+user-authored ticket text can naturally mention urgency or routing terms.
+Priority words such as `high` and `low` are especially likely to be ordinary
+support language. Exact queue names may be stronger target-proxy signals when
+they appear as routing labels, but the safe public examples in
+`reports/dataset_preparation/dataset_summary.json` show a mix of natural
+phrasing and ambiguous support-template language. Records are retained, and the
+risk must be interpreted alongside other leakage checks before reporting model
+claims.
 
 ## Attribution
 

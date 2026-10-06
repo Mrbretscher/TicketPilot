@@ -39,6 +39,7 @@ from ticketpilot.modeling import (
     build_queue_baseline_pipelines,
 )
 from ticketpilot.preparation import CLASSIFIER_TEXT_COLUMN, SPLIT_COLUMN
+from ticketpilot.validation import suspicious_label_mention_report
 
 QUEUE_LABEL_COLUMN = "queue"
 VALID_SPLITS = ("train", "validation", "test")
@@ -319,6 +320,9 @@ def train_and_evaluate_queue_baselines(
             split: _class_distribution(split_frame[QUEUE_LABEL_COLUMN])
             for split, split_frame in splits.items()
         },
+        "data_quality": {
+            "suspicious_label_mentions": _suspicious_label_mentions_for_report(prepared)
+        },
         "model_selection": {
             "selection_split": "validation",
             "selection_metric": "macro_f1",
@@ -453,6 +457,19 @@ def _class_distribution(labels: pd.Series) -> dict[str, dict[str, float | int]]:
             "rate": float(count / total) if total else 0.0,
         }
         for label, count in counts.items()
+    }
+
+
+def _suspicious_label_mentions_for_report(prepared: pd.DataFrame) -> dict[str, Any]:
+    required_columns = {"subject", "body", "queue", "priority"}
+    if required_columns.issubset(prepared.columns):
+        return suspicious_label_mention_report(prepared)
+    return {
+        "status": "not_available",
+        "reason": (
+            "Prepared dataset does not include subject/body columns; regenerate "
+            "with the current preparation script to include this diagnostic."
+        ),
     }
 
 

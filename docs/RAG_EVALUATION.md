@@ -39,6 +39,9 @@ Generated artifacts are ignored by Git:
 - `artifacts/semantic_retrieval/retriever_config.json`
 - `reports/semantic_retrieval/semantic_retrieval_metrics.json`
 - `reports/semantic_retrieval/manual_relevance_template.csv`
+- `reports/gold_retrieval/gold_validation_labeling.csv`
+- `reports/gold_retrieval/gold_test_labeling.csv`
+- `reports/gold_retrieval/gold_retrieval_metrics.json`
 
 ### Retrieval Boundary
 
@@ -127,6 +130,82 @@ Future gold evaluation should label whether each retrieved resolved ticket is
 actually useful evidence for the query, not merely whether it shares the same
 queue.
 
+Gold validation and final test labeling instructions now live in
+[Gold Retrieval Labeling](GOLD_RETRIEVAL_LABELING.md). The gold workflow creates
+separate 20-query CSVs for validation and test, leaves human labels blank, and
+scores completed labels with Recall@1, Recall@3, Recall@5, MRR, and nDCG@5.
+Validation labels may be used for retrieval threshold selection; final test
+labels must remain reporting-only.
+
+### Human-Labeled Gold Retrieval Results
+
+Completed human labels were scored with:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/score_gold_retrieval.py
+```
+
+Gold relevance labels use:
+
+- `0` = not useful evidence for resolving the query
+- `1` = plausibly useful evidence
+- `2` = strongly relevant/useful evidence
+
+Measured gold metrics:
+
+| Split | Query Count | Candidate Count | Recall@1 | Recall@3 | Recall@5 | MRR | nDCG@5 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| GOLD VALIDATION | 20 | 100 | 0.9500 | 0.9500 | 1.0000 | 0.9625 | 0.9557 |
+| GOLD TEST | 20 | 100 | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 0.9681 |
+
+Gold labels are not combined with silver queue-match metrics. The deployed
+TF-IDF retriever's existing silver queue-match metrics remain:
+
+| Split | Relevance Type | Query Count | Recall@1 | Recall@3 | Recall@5 | MRR |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Validation | silver queue match | 2,450 | 0.7449 | 0.8241 | 0.8686 | 0.7884 |
+| Test | silver queue match | 2,450 | 0.7445 | 0.8318 | 0.8755 | 0.7916 |
+
+The difference between gold and silver metrics is expected: gold labels judge
+actual evidence usefulness, while silver metrics only check queue agreement.
+
+### Evidence Threshold Selection
+
+The evidence-quality gate before drafting uses the best retrieved evidence
+similarity score for a query. Threshold selection used GOLD VALIDATION only.
+GOLD TEST was used once afterward for reporting the fixed threshold's behavior.
+
+The validation threshold policy was:
+
+- evaluate candidate evidence thresholds from `0.00` through `0.75`, including
+  `0.39`;
+- count a query as allowed when its top retrieved evidence score is at or above
+  the threshold;
+- count an allowed query as precise when the top retrieved evidence has human
+  `relevance_label > 0`;
+- select the lowest threshold with perfect validation precision while allowing
+  at least 50% of validation queries;
+- if no threshold met that bar, preserve conservative abstention behavior.
+
+The selected threshold is `0.39`.
+
+| Split | Threshold | Queries Allowed | Precision Among Allowed Queries | Abstained |
+| --- | ---: | ---: | ---: | ---: |
+| GOLD VALIDATION | 0.39 | 50.00% | 100.00% | 50.00% |
+| GOLD TEST, reporting only | 0.39 | 50.00% | 100.00% | 50.00% |
+
+Validation score distributions showed overlap between relevant and irrelevant
+candidates at the candidate level: validation irrelevant candidates had scores
+from `0.0964` to `0.3842`, while relevant candidates had scores from `0.0990`
+to `0.7200`. At the top-ranked query level, the single validation top-ranked
+irrelevant candidate scored `0.3824`; top-ranked relevant candidates ranged
+from `0.1764` to `0.7200`.
+
+This supports a conservative threshold for allowing high-score evidence into
+drafting, but it does not prove retrieval score is a complete relevance model.
+Many relevant validation examples fall below `0.39`, so abstention remains an
+expected part of the workflow. Human review remains required for every draft.
+
 ## Generation Evaluation
 
 Milestone 7 implements a provider-neutral `DraftGenerator` interface with:
@@ -163,7 +242,7 @@ Implemented generation checks:
 Evidence gating prevents confident drafts when retrieval quality or classifier
 confidence is below configured thresholds. Current defaults:
 
-- minimum retrieved evidence similarity: `0.50`
+- minimum retrieved evidence similarity: `0.39`
 - minimum classifier confidence: `0.30`
 
 When gating fails, TicketPilot returns an abstention-style structured result
