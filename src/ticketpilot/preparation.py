@@ -22,7 +22,10 @@ from ticketpilot.config import (
     TRAIN_SPLIT_FRACTION,
     VALIDATION_SPLIT_FRACTION,
 )
-from ticketpilot.validation import validate_classifier_feature_columns
+from ticketpilot.validation import (
+    suspicious_label_mention_report,
+    validate_classifier_feature_columns,
+)
 
 CLASSIFIER_TEXT_COLUMN = "classifier_text"
 GROUP_ID_COLUMN = "ticket_text_group_id"
@@ -107,6 +110,8 @@ def prepare_ticket_dataset(
         ROW_ID_COLUMN,
         GROUP_ID_COLUMN,
         SPLIT_COLUMN,
+        "subject",
+        "body",
         CLASSIFIER_TEXT_COLUMN,
         "queue",
         "priority",
@@ -206,6 +211,7 @@ def build_dataset_summary(
             else 1,
         },
         "label_conflicts_within_duplicate_groups": label_conflicts,
+        "suspicious_label_mentions": suspicious_label_mention_report(prepared),
         "repeated_or_highly_similar_subject_body": _similarity_summary(prepared),
         "split_strategy": split_strategy,
         "random_seed": random_seed,

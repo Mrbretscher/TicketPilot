@@ -3,6 +3,7 @@ import pytest
 
 from ticketpilot.validation import (
     DataValidationError,
+    suspicious_label_mention_report,
     validate_classifier_feature_columns,
     validate_ticket_frame,
 )
@@ -147,6 +148,26 @@ def test_validate_ticket_frame_reports_suspicious_label_mentions(
 
     assert summary.suspicious_label_leakage_counts["subject_contains_queue"] == 1
     assert summary.suspicious_label_leakage_counts["body_contains_priority"] == 1
+
+
+def test_suspicious_label_mention_report_includes_counts_rates_and_examples(
+    valid_ticket_frame: pd.DataFrame,
+) -> None:
+    suspicious = valid_ticket_frame.copy()
+    suspicious.loc[0, "subject"] = "Technical Support routing request"
+    suspicious.loc[1, "body"] = "This is a high priority app crash."
+
+    report = suspicious_label_mention_report(suspicious, sample_size=2)
+
+    assert report["queue_label_mentions"]["ticket_count"] == 1
+    assert report["queue_label_mentions"]["rate"] == 0.25
+    assert report["queue_label_mentions"]["affected_labels"] == ["Technical Support"]
+    assert report["priority_label_mentions"]["ticket_count"] == 1
+    assert report["priority_label_mentions"]["affected_labels"] == ["high"]
+    assert report["any_label_mentions"]["ticket_count"] == 2
+    assert len(report["safe_examples"]) == 2
+    assert "answer" not in report["safe_examples"][0]
+    assert report["action"] == "diagnostic_only_no_records_removed"
 
 
 def test_validate_classifier_feature_columns_accepts_subject_and_body() -> None:

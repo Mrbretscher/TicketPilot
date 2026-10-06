@@ -83,6 +83,26 @@ Preparation diagnostics report queue distribution, priority distribution, text
 length, missing values, exact duplicate text groups, repeated text patterns, and
 high-similarity text signals before any model training.
 
+Preparation and classifier evaluation reports must also include suspicious
+literal label-mention diagnostics from `validation.py`. The implemented method
+flags a ticket when its own queue or priority label appears verbatim in the
+public `subject` or `body`. This is a row-wise substring diagnostic, not a
+removal rule, and it does not use resolved answers or other post-routing fields.
+The current prepared dataset reports 862 of 16,338 tickets with any queue or
+priority mention (5.28%). Queue-label mentions affect 97 tickets (0.59%);
+priority-label mentions affect 777 tickets (4.76%). The affected queue labels
+are Billing and Payments, Customer Service, Human Resources, IT Support,
+Product Support, Returns and Exchanges, Service Outages and Maintenance, and
+Technical Support. The affected priority labels are `high`, `low`, and
+`medium`.
+
+Interpretation: priority words such as `high` and `low` are likely to be
+natural support-language mentions in many tickets, while exact queue names can
+be potential target proxies when the text reads like a routing instruction or
+template. The generated reports therefore include counts, rates, affected
+labels, and a small safe public sample for review. Tickets are not
+automatically removed solely because they contain a label name.
+
 The near-duplicate audit writes its machine-readable output to
 `reports/near_duplicate_leakage/audit_report.json`, which is ignored by Git. The
 current report found 98 cross-split candidate pairs at cosine similarity

@@ -93,6 +93,22 @@ def test_prepare_ticket_dataset_does_not_include_answer_text_in_features() -> No
     assert "Resolution answer text" not in classifier_text
 
 
+def test_prepare_ticket_dataset_reports_suspicious_label_mentions() -> None:
+    frame = _preparation_frame()
+    frame.loc[0, "subject"] = "Technical Support routing request"
+    frame.loc[1, "body"] = "This is a medium priority product question."
+
+    prepared = prepare_ticket_dataset(frame)
+    report = prepared.summary["suspicious_label_mentions"]
+
+    assert report["queue_label_mentions"]["ticket_count"] == 1
+    assert report["priority_label_mentions"]["ticket_count"] == 1
+    assert report["any_label_mentions"]["ticket_count"] == 2
+    assert report["safe_examples"]
+    assert "subject" in prepared.frame.columns
+    assert "body" in prepared.frame.columns
+
+
 def test_write_prepared_dataset_outputs_machine_readable_artifacts(
     tmp_path: Path,
 ) -> None:

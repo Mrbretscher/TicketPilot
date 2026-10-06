@@ -2,6 +2,7 @@
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Any
 
 import pandas as pd
 
@@ -169,6 +170,78 @@ def validate_classifier_feature_columns(columns: Iterable[str]) -> None:
         )
 
 
+def suspicious_label_mention_report(
+    frame: pd.DataFrame, *, sample_size: int = 5
+) -> dict[str, Any]:
+    """Report literal label mentions in subject/body using validation diagnostics."""
+    required_columns = {"subject", "body", "queue", "priority"}
+    missing_columns = sorted(required_columns.difference(frame.columns))
+    if missing_columns:
+        raise ValueError(
+            "Suspicious label mention report requires columns: "
+            + ", ".join(missing_columns)
+        )
+
+    subject = frame["subject"].fillna("").astype("string").str.lower()
+    body = frame["body"].fillna("").astype("string").str.lower()
+    queue = frame["queue"].astype("string").str.lower()
+    priority = frame["priority"].astype("string").str.lower()
+    queue_subject_mask = _rowwise_contains_mask(subject, queue)
+    queue_body_mask = _rowwise_contains_mask(body, queue)
+    priority_subject_mask = _rowwise_contains_mask(subject, priority)
+    priority_body_mask = _rowwise_contains_mask(body, priority)
+    queue_mask = queue_subject_mask | queue_body_mask
+    priority_mask = priority_subject_mask | priority_body_mask
+    row_count = int(len(frame))
+
+    return {
+        "method": (
+            "Literal row-wise substring check: a ticket is flagged when its own "
+            "queue or priority label appears in its subject or body."
+        ),
+        "row_count": row_count,
+        "field_counts": {
+            "subject_contains_queue": int(queue_subject_mask.sum()),
+            "body_contains_queue": int(queue_body_mask.sum()),
+            "subject_contains_priority": int(priority_subject_mask.sum()),
+            "body_contains_priority": int(priority_body_mask.sum()),
+        },
+        "queue_label_mentions": {
+            "ticket_count": int(queue_mask.sum()),
+            "rate": _rate(queue_mask, row_count),
+            "affected_labels": _affected_labels(frame["queue"], queue_mask),
+            "affected_label_counts": _affected_label_counts(frame["queue"], queue_mask),
+        },
+        "priority_label_mentions": {
+            "ticket_count": int(priority_mask.sum()),
+            "rate": _rate(priority_mask, row_count),
+            "affected_labels": _affected_labels(frame["priority"], priority_mask),
+            "affected_label_counts": _affected_label_counts(
+                frame["priority"], priority_mask
+            ),
+        },
+        "any_label_mentions": {
+            "ticket_count": int((queue_mask | priority_mask).sum()),
+            "rate": _rate(queue_mask | priority_mask, row_count),
+        },
+        "safe_examples": _safe_label_mention_examples(
+            frame,
+            queue_subject_mask=queue_subject_mask,
+            queue_body_mask=queue_body_mask,
+            priority_subject_mask=priority_subject_mask,
+            priority_body_mask=priority_body_mask,
+            sample_size=sample_size,
+        ),
+        "interpretation": (
+            "Literal queue or priority words in user-authored ticket text can be "
+            "natural support language, especially for words such as high, medium, "
+            "or low. They are tracked as possible target-proxy risk and require "
+            "review before model claims, but records are not automatically removed."
+        ),
+        "action": "diagnostic_only_no_records_removed",
+    }
+
+
 def _validate_schema(frame: pd.DataFrame) -> None:
     columns = tuple(str(column) for column in frame.columns)
     missing_columns = sorted(set(EXPECTED_COLUMNS).difference(columns))
@@ -232,11 +305,82 @@ def _count_suspicious_label_mentions(frame: pd.DataFrame) -> dict[str, int]:
 
 
 def _count_rowwise_contains(text: pd.Series, labels: pd.Series) -> int:
-    count = 0
+    return int(_rowwise_contains_mask(text, labels).sum())
+
+
+def _rowwise_contains_mask(text: pd.Series, labels: pd.Series) -> pd.Series:
+    values = []
     for value, label in zip(text.tolist(), labels.tolist(), strict=True):
-        if str(label) in str(value):
-            count += 1
-    return count
+        values.append(str(label) in str(value))
+    return pd.Series(values, index=text.index, dtype=bool)
+
+
+def _affected_labels(labels: pd.Series, mask: pd.Series) -> list[str]:
+    return sorted(str(label) for label in labels.loc[mask].dropna().unique().tolist())
+
+
+def _affected_label_counts(labels: pd.Series, mask: pd.Series) -> dict[str, int]:
+    return _value_counts(labels.loc[mask])
+
+
+def _rate(mask: pd.Series, row_count: int) -> float:
+    return float(int(mask.sum()) / row_count) if row_count else 0.0
+
+
+def _safe_label_mention_examples(
+    frame: pd.DataFrame,
+    *,
+    queue_subject_mask: pd.Series,
+    queue_body_mask: pd.Series,
+    priority_subject_mask: pd.Series,
+    priority_body_mask: pd.Series,
+    sample_size: int,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    combined_mask = queue_subject_mask | queue_body_mask
+    combined_mask = combined_mask | priority_subject_mask | priority_body_mask
+    for index in frame.index[combined_mask].tolist()[:sample_size]:
+        mention_fields: list[str] = []
+        mention_types: list[str] = []
+        if bool(queue_subject_mask.loc[index]):
+            mention_fields.append("subject")
+            mention_types.append("queue")
+        if bool(queue_body_mask.loc[index]):
+            mention_fields.append("body")
+            mention_types.append("queue")
+        if bool(priority_subject_mask.loc[index]):
+            mention_fields.append("subject")
+            mention_types.append("priority")
+        if bool(priority_body_mask.loc[index]):
+            mention_fields.append("body")
+            mention_types.append("priority")
+        ticket_id = (
+            str(frame.loc[index, "ticket_row_id"])
+            if "ticket_row_id" in frame.columns
+            else f"row-{int(index)}"
+        )
+        rows.append(
+            {
+                "ticket_id": ticket_id,
+                "queue": str(frame.loc[index, "queue"]),
+                "priority": str(frame.loc[index, "priority"]),
+                "mention_types": sorted(set(mention_types)),
+                "mention_fields": sorted(set(mention_fields)),
+                "subject_preview": _preview_text(frame.loc[index, "subject"]),
+                "body_preview": _preview_text(frame.loc[index, "body"]),
+            }
+        )
+    return rows
+
+
+def _preview_text(value: object, *, max_chars: int = 180) -> str:
+    if value is None or value is pd.NA:
+        text = ""
+    else:
+        text = " ".join(str(value).split())
+    if len(text) <= max_chars:
+        return text
+    return text[: max_chars - 3].rstrip() + "..."
 
 
 def _null_counts(frame: pd.DataFrame) -> dict[str, int]:
