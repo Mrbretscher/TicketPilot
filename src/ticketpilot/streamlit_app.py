@@ -471,14 +471,7 @@ def _apply_style(st: Any) -> None:
     st.markdown(
         """
 <style>
-section[data-testid="stSidebar"] { background: #f7f8fb; }
 .stButton > button { border-radius: 6px; }
-div[data-testid="stMetric"] {
-  border: 1px solid #e7e9ef;
-  border-radius: 8px;
-  padding: 0.75rem;
-  background: #ffffff;
-}
 </style>
 """,
         unsafe_allow_html=True,

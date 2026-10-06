@@ -70,6 +70,54 @@ def demo_tickets() -> tuple[DemoTicket, ...]:
             ),
             note="Synthetic product-support ticket matching the public dataset style.",
         ),
+        DemoTicket(
+            name="SaaS compatibility request",
+            subject="Please Update SaaS Compatibility",
+            body=(
+                "Improving SaaS compatibility will boost performance on various "
+                "devices and enhance the software tools for a better user experience."
+            ),
+            note="Synthetic product-support ticket matching the public dataset style.",
+        ),
+        DemoTicket(
+            name="Subscription billing concern",
+            subject="Billing Concerns for Multiple Subscriptions",
+            body=(
+                "Dear Customer Support,\n\n"
+                "I am reaching out to highlight an issue with billing related to "
+                "several of my product subscriptions. Recently, I observed that my "
+                "account was incorrectly charged for multiple subscriptions. "
+                "Specifically, there were multiple billing entries for certain "
+                "products, and in some cases, the billed amounts corresponded to "
+                "the prices listed on the website.\n\n"
+                "After reviewing my bank statements and subscription details, I "
+                "noticed discrepancies that caused confusion and raised concerns "
+                "about the accuracy of the billing process. I kindly ask for your "
+                "assistance in investigating and resolving this matter."
+            ),
+            note="Synthetic billing ticket matching the public dataset style.",
+        ),
+        DemoTicket(
+            name="Evernote sync problem",
+            subject="Sync Problem",
+            body="Facing sync difficulties with Evernote project management SaaS",
+            note="Synthetic technical-support ticket matching public dataset style.",
+        ),
+        DemoTicket(
+            name="Brand growth inquiry",
+            subject="Assistance with Digital Brand Growth Strategies",
+            body=(
+                "Inquiring about the digital strategies and services provided by "
+                "Customer Support for brand growth. Would appreciate detailed "
+                "information on the services available and how they can benefit a "
+                "business. Interested in learning more about the approach to "
+                "digital marketing to assist in achieving the brand's objectives. "
+                "Specifically, would like to know more about social media "
+                "management, content creation, and search engine optimization "
+                "services. Looking forward to your response."
+            ),
+            note="Synthetic sales-support ticket matching the public dataset style.",
+        ),
     )
 
 
