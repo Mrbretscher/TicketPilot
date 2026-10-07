@@ -186,7 +186,7 @@ def _render_analysis_result(st: Any, result: TicketAnalysisResult) -> None:
                 }
                 for item in result.retrieved_evidence
             ]
-            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
     st.subheader("Draft Response")
     if result.confidence_evidence_status != "ready_for_review":
@@ -334,7 +334,7 @@ def _render_review_queue(st: Any, review_database_path: Path) -> None:
     if frame.empty:
         st.info("No review records found yet.")
         return
-    st.dataframe(frame, use_container_width=True, hide_index=True)
+    st.dataframe(frame, width="stretch", hide_index=True)
 
 
 def _render_evaluation(st: Any) -> None:
@@ -369,26 +369,24 @@ def _render_evaluation(st: Any) -> None:
         if comparison.empty:
             st.info("No model comparison rows were found.")
         else:
-            st.dataframe(comparison, use_container_width=True, hide_index=True)
+            st.dataframe(comparison, width="stretch", hide_index=True)
 
         st.subheader("Confusion Matrix")
         matrix = confusion_matrix_frame(queue_report)
         if matrix.empty:
             st.info("No confusion matrix was found in the report.")
         else:
-            st.dataframe(
-                matrix.style.background_gradient(axis=None), use_container_width=True
-            )
+            st.dataframe(matrix, width="stretch")
 
         st.subheader("Per-Class Metrics")
         per_class = per_class_metrics_frame(queue_report)
         if not per_class.empty:
-            st.dataframe(per_class, use_container_width=True, hide_index=True)
+            st.dataframe(per_class, width="stretch", hide_index=True)
 
         st.subheader("Class Distribution")
         distribution = class_distribution_frame(queue_report, split="test")
         if not distribution.empty:
-            st.bar_chart(distribution, x="queue", y="count", use_container_width=True)
+            st.bar_chart(distribution, x="queue", y="count", width="stretch")
 
     st.subheader("Retrieval Metrics")
     selected_method = selected_retrieval_method(retrieval_report)
@@ -397,7 +395,7 @@ def _render_evaluation(st: Any) -> None:
     if retrieval_rows.empty:
         st.info("Retrieval metrics were not found. Run the retrieval workflow.")
     else:
-        st.dataframe(retrieval_rows, use_container_width=True, hide_index=True)
+        st.dataframe(retrieval_rows, width="stretch", hide_index=True)
 
     st.subheader("Dataset Limitations")
     for limitation in dataset_limitations():

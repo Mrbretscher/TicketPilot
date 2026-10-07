@@ -8,18 +8,18 @@ review.
 It does **not** autonomously send responses, close tickets, reset passwords,
 change permissions, issue refunds, or perform helpdesk actions.
 
-**Demo status:** local Streamlit dashboard verified with prepared artifacts;
-hosted demo and walkthrough video are not published yet.
+**Demo status:** local Streamlit dashboard and Docker Compose stack verified
+with prepared artifacts; hosted demo is not published yet.
 
 ![TicketPilot analysis dashboard](docs/assets/ticketpilot-analyze-ticket.jpg)
 
 ![TicketPilot evaluation dashboard](docs/assets/ticketpilot-evaluation.jpg)
 
 > **Release mode:** this repository is currently prepared for repo-only
-> recruiter review. Real local Streamlit screenshots are included above.
-> Hosted demo and demo video links should wait until Docker is verified on a
-> machine with Docker installed. The Streamlit app runs locally at
-> `http://127.0.0.1:8501` after artifacts are prepared.
+> recruiter review. Real Streamlit screenshots captured from the Docker-served
+> dashboard are included above. Hosted demo links should wait until a public
+> deployment exists. The Streamlit app runs locally at `http://127.0.0.1:8501`
+> after artifacts are prepared.
 
 ## Overview
 
@@ -57,9 +57,10 @@ FastAPI, Streamlit, SQLite, pytest, Ruff, mypy, Docker, and GitHub Actions.
 
 ### Local dashboard
 
-The dashboard screenshots above were captured from the actual local Streamlit
-application with prepared classifier, retrieval, and report artifacts. To run
-the same local dashboard:
+The dashboard screenshots above were captured from the actual Streamlit
+application served by Docker Compose with prepared classifier, retrieval, and
+report artifacts mounted from this workspace. To run the same local dashboard
+without Docker:
 
 ```powershell
 .\scripts\run_streamlit_app.ps1
@@ -69,25 +70,34 @@ Then open `http://127.0.0.1:8501`.
 
 ### Hosted demo
 
-Not published yet. Docker packaging exists, but Docker build and Compose
-verification still need to be run on a machine with Docker installed before a
-hosted demo should be advertised.
+Not published yet. Docker build and Compose startup are verified locally, but a
+public hosted deployment has not been created or reviewed for authentication,
+RBAC, monitoring, or production operations.
 
-### Demo video
+### Screenshot walkthrough
 
-Not published yet. Record a two-to-three-minute walkthrough using
-[docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) after Docker verification is
-complete.
+This text walkthrough uses the screenshots above from the verified local Docker
+workflow.
 
-Suggested demo path:
+1. Open the Streamlit dashboard. The first screen is the Analyze Ticket
+   workspace, where a reviewer can choose a demo ticket or enter a subject and
+   body manually.
+2. Submit the ticket for analysis. TicketPilot predicts a support queue,
+   assigns a confidence score, retrieves similar solved tickets, and keeps the
+   response behind reviewer controls.
+3. Inspect the abstention behavior. When classifier confidence or retrieved
+   evidence is weak, the workflow returns a human-review-required result instead
+   of a grounded draft.
+4. Open the Evaluation page. The dashboard summarizes the selected queue
+   classifier, final-test metrics, model comparison, confusion matrix,
+   per-class metrics, retrieval metrics, and dataset limitations.
+5. Check `/model-info` when using the API. It confirms that the deployed runtime
+   uses the TF-IDF queue classifier and TF-IDF retrieval artifact, while
+   priority prediction remains explicitly unsupported in v1.
 
-1. Open the Streamlit dashboard.
-2. Choose a synthetic demo ticket.
-3. Run analysis.
-4. Show predicted queue, confidence, retrieved evidence, draft/abstention
-   status, citations, and review controls.
-5. Show `/model-info` to verify priority prediction is unsupported and TF-IDF
-   retrieval is the deployed retriever.
+For a spoken or interview demo, [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)
+provides a concise sequence to follow. The README walkthrough is the text and
+screenshots above.
 
 ## Architecture
 
@@ -366,9 +376,9 @@ The minimum runtime artifacts are:
 
 ## Docker
 
-Docker support is configured for a recruiter/demo workflow, but Docker build and
-Compose checks have not been verified in this environment because Docker is not
-installed/on PATH here.
+Docker support is configured and locally verified for a recruiter/demo workflow.
+On October 7, 2026, `ticketpilot:local` was built and run with Docker Desktop
+4.94.0, Docker Engine 29.8.2, and the `desktop-linux` context.
 
 The image is intentionally lightweight: it installs runtime dependencies and
 source code only. Generated classifier, retrieval, report, and review artifacts
@@ -377,14 +387,27 @@ artifacts read-only at runtime.
 
 ```powershell
 docker build -t ticketpilot:local .
-docker compose up --build
+docker compose up --build -d
 Invoke-RestMethod http://127.0.0.1:8000/health
 Invoke-RestMethod http://127.0.0.1:8000/model-info
 docker compose down
 ```
 
 Compose starts separate API and Streamlit services from one image and mounts the
-prepared local model/retrieval artifacts at runtime.
+prepared local model/retrieval artifacts at runtime. The latest Docker smoke
+test verified:
+
+- `docker compose ps` reported the API service healthy and the Streamlit service
+  running.
+- `GET /health` returned `ready: true`.
+- `GET /model-info` loaded the TF-IDF queue classifier and TF-IDF retrieval
+  artifact, with priority prediction explicitly unsupported.
+- `POST /analyze` returned a human-review-required abstention when retrieved
+  evidence was below the configured `0.39` threshold.
+- `http://127.0.0.1:8501` returned the Streamlit dashboard, and the README
+  screenshots were captured from that Docker-served UI.
+- Final container logs showed normal startup, health checks, and API calls with
+  no tracebacks.
 
 ## Testing
 
@@ -398,16 +421,28 @@ Configured checks:
 .\scripts\verify.ps1
 ```
 
-Latest local verification in this workspace: `135 passed, 1 skipped, 1 warning`
-from pytest, plus Ruff, Ruff format, and mypy passing through
-`scripts/verify.ps1`.
+Latest focused verification for the Docker documentation update:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests\test_streamlit_app.py
+.\.venv\Scripts\python.exe -m ruff check src\ticketpilot\streamlit_app.py tests\test_streamlit_app.py
+.\.venv\Scripts\python.exe -m ruff format --check src\ticketpilot\streamlit_app.py tests\test_streamlit_app.py
+.\.venv\Scripts\python.exe -m mypy src\ticketpilot\streamlit_app.py
+docker compose up --build -d
+docker compose down
+```
+
+The focused pytest run passed `4` tests. Ruff, Ruff format, and mypy passed for
+the changed Streamlit files. Docker Compose build, startup, API smoke tests, and
+dashboard screenshot capture passed with the prepared local artifacts mounted.
 
 ## Limitations
 
 - Portfolio prototype, not a production helpdesk product.
 - No authentication, RBAC, monitoring, hosted deployment, or production
   operations.
-- Docker files are present, but Docker runtime verification is pending.
+- Docker is verified for local demo use only; no public container registry,
+  hosted deployment, or production hardening is configured.
 - Dataset is synthetic/public and non-commercially licensed.
 - Final test metrics are reporting-only and have historical inspection
   limitations documented in the model card.
@@ -419,8 +454,8 @@ from pytest, plus Ruff, Ruff format, and mypy passing through
 
 ## Roadmap
 
-- Verify Docker build and Compose startup on a Docker-enabled machine.
-- Add hosted demo and demo video links.
+- Add a hosted demo link after authentication, deployment, and monitoring
+  concerns are addressed.
 - Add authentication/RBAC before any non-local deployment.
 - Add monitoring and structured operational logging.
 - Improve queue error analysis for low-recall and low-support classes.

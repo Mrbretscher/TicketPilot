@@ -27,3 +27,11 @@ def test_streamlit_wording_does_not_claim_autonomous_routing() -> None:
 
     assert "Auto-route" not in source
     assert "Review recommendation ready" in source
+
+
+def test_streamlit_runtime_does_not_require_matplotlib_styling() -> None:
+    module = importlib.import_module("ticketpilot.streamlit_app")
+    source = module.Path(module.__file__).read_text(encoding="utf-8")
+
+    assert "background_gradient" not in source
+    assert "use_container_width" not in source
