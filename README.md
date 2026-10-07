@@ -8,16 +8,18 @@ review.
 It does **not** autonomously send responses, close tickets, reset passwords,
 change permissions, issue refunds, or perform helpdesk actions.
 
-**Recruiter links:** [Live demo placeholder](#live-demo-placeholder) |
-[Demo video placeholder](#demo-video-placeholder)
+**Demo status:** local Streamlit dashboard verified with prepared artifacts;
+hosted demo and walkthrough video are not published yet.
 
-![TicketPilot dashboard placeholder](docs/assets/ticketpilot-dashboard-placeholder.svg)
+![TicketPilot analysis dashboard](docs/assets/ticketpilot-analyze-ticket.jpg)
+
+![TicketPilot evaluation dashboard](docs/assets/ticketpilot-evaluation.jpg)
 
 > **Release mode:** this repository is currently prepared for repo-only
-> recruiter review. Hosted demo, demo video, and real dashboard screenshot
-> links remain placeholders until Docker is verified on a machine with Docker
-> installed. The Streamlit app runs locally at `http://127.0.0.1:8501` after
-> artifacts are prepared.
+> recruiter review. Real local Streamlit screenshots are included above.
+> Hosted demo and demo video links should wait until Docker is verified on a
+> machine with Docker installed. The Streamlit app runs locally at
+> `http://127.0.0.1:8501` after artifacts are prepared.
 
 ## Overview
 
@@ -53,18 +55,29 @@ FastAPI, Streamlit, SQLite, pytest, Ruff, mypy, Docker, and GitHub Actions.
 
 ## Demo
 
-### Live demo placeholder
+### Local dashboard
 
-Not published yet. This is intentionally a link placeholder for a future hosted
-demo. Docker packaging exists, but Docker build and Compose verification still
-need to be run on a machine with Docker installed before a hosted demo should be
-advertised.
+The dashboard screenshots above were captured from the actual local Streamlit
+application with prepared classifier, retrieval, and report artifacts. To run
+the same local dashboard:
 
-### Demo video placeholder
+```powershell
+.\scripts\run_streamlit_app.ps1
+```
+
+Then open `http://127.0.0.1:8501`.
+
+### Hosted demo
+
+Not published yet. Docker packaging exists, but Docker build and Compose
+verification still need to be run on a machine with Docker installed before a
+hosted demo should be advertised.
+
+### Demo video
 
 Not published yet. Record a two-to-three-minute walkthrough using
-[docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) after Docker verification and a real
-dashboard screenshot are complete.
+[docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) after Docker verification is
+complete.
 
 Suggested demo path:
 
@@ -202,7 +215,10 @@ TF-IDF retrieval metrics using silver queue-match relevance:
 Semantic and hybrid retrieval were evaluated offline with
 `sentence-transformers/all-MiniLM-L6-v2`. The 50/50 hybrid won validation
 Recall@5 in the offline report, but it is not deployed because reproducible
-semantic query encoding is not packaged as a local runtime artifact.
+semantic query encoding is not packaged as a local runtime artifact. The
+dashboard's Evaluation page may display the offline hybrid report when that
+ignored report artifact exists locally; `/model-info` remains the source of
+truth for the active runtime retriever.
 
 ## RAG
 
@@ -404,7 +420,7 @@ from pytest, plus Ruff, Ruff format, and mypy passing through
 ## Roadmap
 
 - Verify Docker build and Compose startup on a Docker-enabled machine.
-- Add dashboard screenshot and demo video links.
+- Add hosted demo and demo video links.
 - Add authentication/RBAC before any non-local deployment.
 - Add monitoring and structured operational logging.
 - Improve queue error analysis for low-recall and low-support classes.

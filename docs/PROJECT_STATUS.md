@@ -27,7 +27,7 @@ Last updated: 2026-10-06
 | COMPLETE | FastAPI service | Core orchestration service, explicit artifact loading, health/model-info/classify/retrieve/analyze/review endpoints, Pydantic schemas, readiness failures, and fake-provider API tests. The active retriever is reported truthfully as TF-IDF; the validation-selected hybrid candidate is not deployed until its semantic query encoder is locally reproducible. | Add deployment packaging without send/execute capabilities |
 | COMPLETE | Streamlit dashboard | Recruiter-facing Analyze Ticket console, Review Queue, artifact-backed Evaluation page, System/Model Information, About/Limitations, sample demo tickets, and smoke tests | Add deployment packaging without send/execute capabilities |
 | IN PROGRESS | Docker and CI | Dockerfile, Docker Compose, .dockerignore, dependency split, GitHub Actions workflow, packaging tests, local FastAPI health/model-info/analyze checks, and local Streamlit health check. Docker host verification is still pending because Docker is unavailable in the current environment. | Run Docker build and Compose health/analyze checks on a machine with Docker installed before marking complete |
-| IN PROGRESS | Recruiter-facing release documentation | README rewrite, architecture diagram, updated data/model/security docs, demo script, recruiter summary, resume bullets, LinkedIn description, and a committed dashboard placeholder image. Live demo, video, and real screenshot links remain unfilled by design for repo-only recruiter review. | Add verified screenshot/demo links after Docker runtime verification |
+| IN PROGRESS | Recruiter-facing release documentation | README rewrite, architecture diagram, updated data/model/security docs, demo script, recruiter summary, resume bullets, LinkedIn description, and real local Streamlit dashboard screenshots. Hosted demo and video remain unpublished by design for repo-only recruiter review. | Add verified hosted demo/video links after Docker runtime verification |
 
 ## Current Focus
 
@@ -56,9 +56,9 @@ test inspection is documented as a methodology limitation.
 ## Immediate Next Task
 
 Before publishing a hosted recruiter demo, run Docker build and Docker Compose
-verification on a machine with Docker installed, replace the placeholder image
-with a real dashboard screenshot, add demo/video links, and mark the packaging
-and recruiter-documentation milestones complete if those checks pass.
+verification on a machine with Docker installed, add hosted demo/video links,
+and mark the packaging and recruiter-documentation milestones complete if those
+checks pass.
 
 ## Known Constraints
 
