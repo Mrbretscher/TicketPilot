@@ -369,6 +369,17 @@ Python for the first time, this short Windows walkthrough shows the python.org
 installer flow and `py` launcher option: [Python 3.11 Windows install
 video](https://www.youtube.com/watch?v=g6TRH5IX8F0).
 
+Run the commands below from the TicketPilot project folder, which is the folder
+that contains `README.md`, `pyproject.toml`, and `scripts/`. In PowerShell or
+Windows Terminal, move into that folder before running setup:
+
+```powershell
+cd C:\path\to\ticketpilot
+```
+
+If you run these commands from a random command prompt location, relative paths
+such as `.\scripts\setup.ps1` and `.\.venv\Scripts\python.exe` will not resolve.
+
 ```powershell
 .\scripts\setup.ps1
 .\scripts\verify.ps1
