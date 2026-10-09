@@ -8,8 +8,22 @@ review.
 It does **not** autonomously send responses, close tickets, reset passwords,
 change permissions, issue refunds, or perform helpdesk actions.
 
-**Demo status:** local Streamlit dashboard and Docker Compose stack verified
-with prepared artifacts; hosted demo is not published yet.
+## Current Status
+
+Implemented and verified locally:
+
+- Streamlit dashboard with prepared classifier, retrieval, and report artifacts.
+- Docker Compose stack for the API and dashboard.
+- FastAPI endpoints for classification, retrieval, analysis, and review storage.
+- Queue-routing evaluation, retrieval evaluation, confidence gates, abstention,
+  prompt-injection tests, and local SQLite review persistence.
+
+Not implemented:
+
+- Hosted public demo, authentication, RBAC, monitoring, or production
+  operations.
+
+## Demo
 
 ![TicketPilot analysis dashboard](docs/assets/ticketpilot-analyze-ticket.jpg)
 
@@ -21,7 +35,51 @@ with prepared artifacts; hosted demo is not published yet.
 > deployment exists. The Streamlit app runs locally at `http://127.0.0.1:8501`
 > after artifacts are prepared.
 
-## Overview
+### Local Dashboard
+
+The dashboard screenshots above were captured from the actual Streamlit
+application served by Docker Compose with prepared classifier, retrieval, and
+report artifacts mounted from this workspace. To run the same local dashboard
+without Docker:
+
+```powershell
+.\scripts\run_streamlit_app.ps1
+```
+
+Then open `http://127.0.0.1:8501`.
+
+### Hosted Demo
+
+Not published yet. Docker build and Compose startup are verified locally, but a
+public hosted deployment has not been created or reviewed for authentication,
+RBAC, monitoring, or production operations.
+
+### Screenshot Walkthrough
+
+This text walkthrough uses the screenshots above from the verified local Docker
+workflow.
+
+1. Open the Streamlit dashboard. The first screen is the Analyze Ticket
+   workspace, where a reviewer can choose a demo ticket or enter a subject and
+   body manually.
+2. Submit the ticket for analysis. TicketPilot predicts a support queue,
+   assigns a confidence score, retrieves similar solved tickets, and keeps the
+   response behind reviewer controls.
+3. Inspect the abstention behavior. When classifier confidence or retrieved
+   evidence is weak, the workflow returns a human-review-required result instead
+   of a grounded draft.
+4. Open the Evaluation page. The dashboard summarizes the selected queue
+   classifier, final-test metrics, model comparison, confusion matrix,
+   per-class metrics, retrieval metrics, and dataset limitations.
+5. Check `/model-info` when using the API. It confirms that the deployed runtime
+   uses the TF-IDF queue classifier and TF-IDF retrieval artifact, while
+   priority prediction remains explicitly unsupported in v1.
+
+For a spoken or interview demo, [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)
+provides a concise sequence to follow. The README walkthrough is the text and
+screenshots above.
+
+## Problem
 
 Support queues receive incomplete, noisy tickets. A triage assistant can help a
 human reviewer by suggesting where the ticket belongs, finding related solved
@@ -53,52 +111,6 @@ Current measured results from repository artifacts:
 Main technologies: Python 3.11, scikit-learn, TensorFlow/Keras, pandas, numpy,
 FastAPI, Streamlit, SQLite, pytest, Ruff, mypy, Docker, and GitHub Actions.
 
-## Demo
-
-### Local dashboard
-
-The dashboard screenshots above were captured from the actual Streamlit
-application served by Docker Compose with prepared classifier, retrieval, and
-report artifacts mounted from this workspace. To run the same local dashboard
-without Docker:
-
-```powershell
-.\scripts\run_streamlit_app.ps1
-```
-
-Then open `http://127.0.0.1:8501`.
-
-### Hosted demo
-
-Not published yet. Docker build and Compose startup are verified locally, but a
-public hosted deployment has not been created or reviewed for authentication,
-RBAC, monitoring, or production operations.
-
-### Screenshot walkthrough
-
-This text walkthrough uses the screenshots above from the verified local Docker
-workflow.
-
-1. Open the Streamlit dashboard. The first screen is the Analyze Ticket
-   workspace, where a reviewer can choose a demo ticket or enter a subject and
-   body manually.
-2. Submit the ticket for analysis. TicketPilot predicts a support queue,
-   assigns a confidence score, retrieves similar solved tickets, and keeps the
-   response behind reviewer controls.
-3. Inspect the abstention behavior. When classifier confidence or retrieved
-   evidence is weak, the workflow returns a human-review-required result instead
-   of a grounded draft.
-4. Open the Evaluation page. The dashboard summarizes the selected queue
-   classifier, final-test metrics, model comparison, confusion matrix,
-   per-class metrics, retrieval metrics, and dataset limitations.
-5. Check `/model-info` when using the API. It confirms that the deployed runtime
-   uses the TF-IDF queue classifier and TF-IDF retrieval artifact, while
-   priority prediction remains explicitly unsupported in v1.
-
-For a spoken or interview demo, [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)
-provides a concise sequence to follow. The README walkthrough is the text and
-screenshots above.
-
 ## Architecture
 
 ```mermaid
@@ -128,7 +140,7 @@ models, download the dataset, or require Hugging Face access during startup.
 The Streamlit dashboard uses the core orchestration service directly; the
 FastAPI service exposes the same workflow through HTTP endpoints.
 
-## End-to-end workflow
+## End-to-End Workflow
 
 1. Fetch and validate the pinned public dataset.
 2. Filter to English records and prepare duplicate-aware train/validation/test
@@ -144,7 +156,7 @@ FastAPI service exposes the same workflow through HTTP endpoints.
    confidence/evidence gates, draft or abstain, and require human review.
 10. Persist reviewer decisions locally in SQLite.
 
-## Dataset
+## Dataset and Licensing
 
 TicketPilot uses the English subset of
 `Tobi-Bueck/customer-support-tickets`, pinned to revision
@@ -165,7 +177,9 @@ Observed source data:
 See [docs/DATA_CARD.md](docs/DATA_CARD.md) for schema, validation checks,
 label distributions, leakage diagnostics, and limitations.
 
-## Queue classification
+## Model Approach
+
+### Queue Classification
 
 Implemented queue-routing baselines:
 
@@ -191,7 +205,7 @@ Final-test metrics for the selected calibrated scikit-learn model:
 Automated priority prediction is intentionally unsupported for recruiter-ready
 v1. Runtime analysis returns `predicted_priority: null`.
 
-## TensorFlow comparison
+### TensorFlow Comparison
 
 TicketPilot includes a TensorFlow/Keras comparison model with
 `TextVectorization`, embedding, `Conv1D`, global max pooling, dropout, class
@@ -208,7 +222,7 @@ The TensorFlow model had lower measured final-test latency in the local report,
 but routing quality was worse, so the documented deployment decision keeps the
 scikit-learn baseline.
 
-## Retrieval
+### Retrieval
 
 The deployed v1 retriever is a train-only TF-IDF cosine similarity index. It
 returns stable source IDs, subject, body, resolved answer, queue, priority, and
@@ -230,7 +244,7 @@ dashboard's Evaluation page may display the offline hybrid report when that
 ignored report artifact exists locally; `/model-info` remains the source of
 truth for the active runtime retriever.
 
-## RAG
+### RAG
 
 RAG-style drafting is provider-neutral:
 
@@ -247,24 +261,7 @@ Current defaults:
 When gates fail or the provider fails, TicketPilot returns a structured
 human-review-required abstention instead of a confident draft.
 
-## Human review
-
-Every analysis requires human review. The local review workflow stores:
-
-- analysis ID
-- ticket text hash
-- predicted queue and confidence
-- retrieved evidence IDs
-- draft response
-- reviewer action
-- edited response or final queue when supplied
-- audit timestamps
-
-Allowed reviewer actions are `accept`, `edit`, `reject`, `reroute`, and
-`mark_insufficient_evidence`. The system records decisions only; it does not
-send or execute anything.
-
-## Evaluation results
+## Evaluation Results
 
 Evaluation artifacts are stored under ignored `reports/` paths. Highlights:
 
@@ -282,7 +279,9 @@ Evaluation artifacts are stored under ignored `reports/` paths. Highlights:
   threshold allowed 50% of queries with 100% precision among allowed queries in
   the labeled sample.
 
-## Confidence and abstention
+## Operational Controls
+
+### Confidence and Abstention
 
 The queue confidence threshold `0.30` was selected on validation with a minimum
 coverage target of 70%. On final test, that threshold:
@@ -295,7 +294,24 @@ coverage target of 70%. On final test, that threshold:
 This is a portfolio evaluation result, not an approved operational policy.
 Human review is still required before any response or action.
 
-## Security and prompt-injection handling
+### Human Review
+
+Every analysis requires human review. The local review workflow stores:
+
+- analysis ID
+- ticket text hash
+- predicted queue and confidence
+- retrieved evidence IDs
+- draft response
+- reviewer action
+- edited response or final queue when supplied
+- audit timestamps
+
+Allowed reviewer actions are `accept`, `edit`, `reject`, `reroute`, and
+`mark_insufficient_evidence`. The system records decisions only; it does not
+send or execute anything.
+
+### Security and Prompt-Injection Handling
 
 Implemented controls:
 
@@ -312,7 +328,7 @@ Implemented controls:
 
 See [docs/SECURITY.md](docs/SECURITY.md).
 
-## API
+## API / Inference Examples
 
 FastAPI entrypoint:
 
@@ -346,7 +362,12 @@ Invoke-RestMethod `
   -Body $body
 ```
 
-## Local setup
+## Local Setup
+
+Install Python 3.11 before running the setup script. If you are setting up
+Python for the first time, this short Windows walkthrough shows the python.org
+installer flow and `py` launcher option: [Python 3.11 Windows install
+video](https://www.youtube.com/watch?v=g6TRH5IX8F0).
 
 ```powershell
 .\scripts\setup.ps1
@@ -362,19 +383,23 @@ Prepare local artifacts:
 .\.venv\Scripts\python.exe scripts\build_retrieval_baseline.py
 ```
 
-Run the dashboard:
-
-```powershell
-.\scripts\run_streamlit_app.ps1
-```
-
 The minimum runtime artifacts are:
 
 - `artifacts/queue_baseline/selected_queue_router.joblib`
 - `artifacts/retrieval/tfidf_ticket_retriever.joblib`
 - `reports/queue_baseline/queue_baseline_metrics.json`
 
-## Docker
+## Streamlit GUI
+
+Run the dashboard:
+
+```powershell
+.\scripts\run_streamlit_app.ps1
+```
+
+Then open `http://127.0.0.1:8501`.
+
+## Docker Demo
 
 Docker support is configured and locally verified for a recruiter/demo workflow.
 On October 7, 2026, `ticketpilot:local` was built and run with Docker Desktop
@@ -409,7 +434,7 @@ test verified:
 - Final container logs showed normal startup, health checks, and API calls with
   no tracebacks.
 
-## Testing
+## Testing and Verification
 
 Configured checks:
 
@@ -435,6 +460,13 @@ docker compose down
 The focused pytest run passed `4` tests. Ruff, Ruff format, and mypy passed for
 the changed Streamlit files. Docker Compose build, startup, API smoke tests, and
 dashboard screenshot capture passed with the prepared local artifacts mounted.
+
+## Documentation
+
+- [Data card](docs/DATA_CARD.md)
+- [Model card](docs/MODEL_CARD.md)
+- [Demo script](docs/DEMO_SCRIPT.md)
+- [Security notes](docs/SECURITY.md)
 
 ## Limitations
 
@@ -464,7 +496,7 @@ dashboard screenshot capture passed with the prepared local artifacts mounted.
 - Expand human-labeled retrieval and drafting evaluation before changing
   evidence thresholds.
 
-## Dataset/license attribution
+## License and Attribution
 
 Dataset: `Tobi-Bueck/customer-support-tickets` on Hugging Face. The dataset page
 lists license `cc-by-nc-4.0`, DOI `10.57967/hf/6184`, and creator organization
